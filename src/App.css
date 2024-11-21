@@ -1,0 +1,10 @@
+#root {
+  width: 100%;
+  margin: 0 auto;
+  background-color: black;
+}
+
+.sidebar {
+  width: 25%;
+  color: white;
+}
