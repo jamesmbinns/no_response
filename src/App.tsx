@@ -12,6 +12,19 @@ enum AidType {
   WaterFood,
 }
 
+const getMarkerColor = (markerType: AidType) => {
+  switch (markerType) {
+    case AidType.AirFood:
+      return "yellow";
+
+    case AidType.WaterFood:
+      return "blue";
+
+    default:
+      return "white";
+  }
+};
+
 const borderStyle = () => {
   return {
     weight: 2,
@@ -56,8 +69,8 @@ const highlightFeature = (e: L.LayerEvent) => {
 const App = () => {
   const [map, setMap] = useState<L.Map>();
   const [markerType, setMarkerType] = useState<AidType>();
-  const [airDrop, setAirDrop] = useState<L.Marker>();
-  const [airDropCircle, setAirDropCircle] = useState<L.Circle>();
+  const [supplyDrop, setsupplyDrop] = useState<L.Marker>();
+  const [supplyDropCircle, setsupplyDropCircle] = useState<L.Circle>();
 
   let dwellings: any;
   let border: any;
@@ -83,26 +96,26 @@ const App = () => {
   const handleMapClick = useCallback(
     (e: L.LeafletMouseEvent) => {
       // Clear existing marker and circle
-      if (airDrop && airDropCircle) {
-        map?.removeLayer(airDrop);
-        map?.removeLayer(airDropCircle);
+      if (supplyDrop && supplyDropCircle) {
+        map?.removeLayer(supplyDrop);
+        map?.removeLayer(supplyDropCircle);
       }
 
       let circle = L.circle([e.latlng.lat, e.latlng.lng], {
-        color: "red",
-        fillColor: "#f03",
+        color: "white",
+        fillColor: getMarkerColor(markerType!),
         fillOpacity: 0.2,
-        radius: 500,
+        radius: 200,
       }).addTo(map!);
 
-      setAirDropCircle(circle);
+      setsupplyDropCircle(circle);
 
       // Add a marker to the clicked area
       let drop = L.marker([e.latlng.lat, e.latlng.lng]).addTo(map!);
 
-      setAirDrop(drop);
+      setsupplyDrop(drop);
     },
-    [map, markerType, airDrop, airDropCircle]
+    [map, markerType, supplyDrop, supplyDropCircle]
   );
 
   useEffect(() => {
@@ -155,7 +168,7 @@ const App = () => {
         map.off("click", handleMapClick);
       };
     }
-  }, [map, markerType, airDrop, airDropCircle]);
+  }, [map, markerType, supplyDrop, supplyDropCircle]);
 
   return (
     <div className="flex flex-row">
