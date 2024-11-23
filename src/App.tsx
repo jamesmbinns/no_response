@@ -54,7 +54,7 @@ const highlightFeature = (e: L.LayerEvent) => {
 };
 
 const App = () => {
-  const [map, setMap] = useState<L.Map>({});
+  const [map, setMap] = useState<L.Map>();
   const [markerType, setMarkerType] = useState<AidType>();
   const [airDrop, setAirDrop] = useState<L.Marker>();
   const [airDropCircle, setAirDropCircle] = useState<L.Circle>();
@@ -69,7 +69,7 @@ const App = () => {
   };
 
   const zoomToFeature = (e: L.LayerEvent) => {
-    map.fitBounds(e.target.getBounds());
+    map?.fitBounds(e.target.getBounds());
   };
 
   const onEachFeature = (_feature: Feature, layer: L.Layer) => {
@@ -84,8 +84,8 @@ const App = () => {
     (e: L.LeafletMouseEvent) => {
       // Clear existing marker and circle
       if (airDrop && airDropCircle) {
-        map.removeLayer(airDrop);
-        map.removeLayer(airDropCircle);
+        map?.removeLayer(airDrop);
+        map?.removeLayer(airDropCircle);
       }
 
       let circle = L.circle([e.latlng.lat, e.latlng.lng], {
@@ -93,16 +93,16 @@ const App = () => {
         fillColor: "#f03",
         fillOpacity: 0.2,
         radius: 500,
-      }).addTo(map);
+      }).addTo(map!);
 
       setAirDropCircle(circle);
 
       // Add a marker to the clicked area
-      let drop = L.marker([e.latlng.lat, e.latlng.lng]).addTo(map);
+      let drop = L.marker([e.latlng.lat, e.latlng.lng]).addTo(map!);
 
       setAirDrop(drop);
     },
-    [map, markerType]
+    [map, markerType, airDrop, airDropCircle]
   );
 
   useEffect(() => {
@@ -137,7 +137,7 @@ const App = () => {
       let newLayer = dwellings._layers[key];
       // Apply your transformation here
       // ex. newLayer.feature.properties.call_sign = Date.now();
-      acc[key] = newLayer;
+      acc[key as keyof Object] = newLayer;
       return acc;
     }, {});
     // End game init
@@ -155,7 +155,7 @@ const App = () => {
         map.off("click", handleMapClick);
       };
     }
-  }, [map, markerType]);
+  }, [map, markerType, airDrop, airDropCircle]);
 
   return (
     <div className="flex flex-row">
