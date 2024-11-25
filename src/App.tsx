@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from "react";
 import { Feature, GeoJsonObject } from "geojson";
+import { booleanOverlap } from "@turf/boolean-overlap";
 import "./App.css";
 import "leaflet/dist/leaflet.css";
 import borderJSON from "./assets/border.json";
@@ -92,8 +93,8 @@ const highlightFeature = (e: L.LayerEvent) => {
 const App = () => {
   const [map, setMap] = useState<L.Map>();
   const [markerType, setMarkerType] = useState<AidType>();
-  const [supplyDrop, setsupplyDrop] = useState<L.Marker>();
-  const [supplyDropCircle, setsupplyDropCircle] = useState<L.Circle>();
+  const [supplyDrop, setSupplyDrop] = useState<L.Marker>();
+  const [supplyDropCircle, setSupplyDropCircle] = useState<L.Circle>();
 
   let dwellings: any;
   let border: any;
@@ -116,6 +117,35 @@ const App = () => {
     });
   };
 
+  const checkOverlap = () => {
+    let overlap = false;
+
+    var layers = map?.eachLayer((layer: L.Layer) => {
+      let layerOverlaps = false;
+
+      if (layer._pxBounds && supplyDropCircle) {
+        layerOverlaps = supplyDropCircle!.getBounds().contains(layer._pxBounds);
+
+        if (layer._pxBounds) {
+          console.log("===layer._pxBounds", layer._pxBounds);
+        }
+
+        if (layerOverlaps) {
+          console.log("===this one is good");
+          overlap = true;
+        }
+      }
+
+      console.log("===layerOverlaps", layerOverlaps);
+    });
+
+    console.log("===overlap", overlap);
+
+    // layers.forEach((layer: L.Layer) => {
+    //   console.log("===layer", layer);
+    // });
+  };
+
   const handleMapClick = useCallback(
     (e: L.LeafletMouseEvent) => {
       // Clear existing marker and circle
@@ -130,12 +160,12 @@ const App = () => {
         color: markerData.color,
         fillColor: markerData.color,
         fillOpacity: 0.2,
-        radius: markerData.radius,
+        radius: markerData.radius!,
         weight: 3,
         dashArray: "3",
       }).addTo(map!);
 
-      setsupplyDropCircle(circle);
+      setSupplyDropCircle(circle);
 
       var icon = L.icon({
         iconUrl: `/src/assets/${markerType}.png`,
@@ -147,7 +177,9 @@ const App = () => {
       // Add a marker to the clicked area
       let drop = L.marker([e.latlng.lat, e.latlng.lng], { icon }).addTo(map!);
 
-      setsupplyDrop(drop);
+      setSupplyDrop(drop);
+
+      checkOverlap();
     },
     [map, markerType, supplyDrop, supplyDropCircle]
   );
