@@ -8,29 +8,52 @@ import dwellingsJSON from "./assets/dwellings.json";
 import L from "leaflet";
 
 enum AidType {
-  AirFood,
-  WaterFood,
+  AirFood = "air_food",
+  WaterFood = "water_food",
+  AirSoldier = "air_soldier",
+  WaterSoldier = "water_soldier",
 }
 
-const getMarkerColor = (markerType: AidType) => {
+const getMarkerData = (markerType: AidType) => {
   switch (markerType) {
     case AidType.AirFood:
-      return "yellow";
+      return {
+        color: "red",
+        radius: 100,
+      };
 
     case AidType.WaterFood:
-      return "blue";
+      return {
+        color: "blue",
+        radius: 200,
+      };
+
+    case AidType.AirSoldier:
+      return {
+        color: "red",
+        radius: 100,
+      };
+
+    case AidType.WaterSoldier:
+      return {
+        color: "red",
+        radius: 200,
+      };
 
     default:
-      return "white";
+      return {
+        color: "white",
+        width: 300,
+      };
   }
 };
 
 const borderStyle = () => {
   return {
     weight: 2,
+    dashArray: "3",
     opacity: 0.5,
     color: "yellow",
-    dashArray: "3",
     fillOpacity: 0,
   };
 };
@@ -101,17 +124,28 @@ const App = () => {
         map?.removeLayer(supplyDropCircle);
       }
 
+      const markerData = getMarkerData(markerType!);
+
       let circle = L.circle([e.latlng.lat, e.latlng.lng], {
-        color: "white",
-        fillColor: getMarkerColor(markerType!),
+        color: markerData.color,
+        fillColor: markerData.color,
         fillOpacity: 0.2,
-        radius: 200,
+        radius: markerData.radius,
+        weight: 3,
+        dashArray: "3",
       }).addTo(map!);
 
       setsupplyDropCircle(circle);
 
+      var icon = L.icon({
+        iconUrl: `/src/assets/${markerType}.png`,
+
+        iconSize: [30, 51], // size of the icon
+        popupAnchor: [-3, -76], // point from which the popup should open relative to the iconAnchor
+      });
+
       // Add a marker to the clicked area
-      let drop = L.marker([e.latlng.lat, e.latlng.lng]).addTo(map!);
+      let drop = L.marker([e.latlng.lat, e.latlng.lng], { icon }).addTo(map!);
 
       setsupplyDrop(drop);
     },
@@ -174,20 +208,36 @@ const App = () => {
     <div className="flex flex-row">
       <div className="sidebar">
         <h3 className="text-green underline">Sidebar</h3>
-        <button
-          onClick={(e) => {
-            setMarkerType(AidType.AirFood);
-          }}
-        >
-          Air Food
-        </button>
-        <button
-          onClick={(e) => {
-            setMarkerType(AidType.WaterFood);
-          }}
-        >
-          Water Food
-        </button>
+        <div className="flex flex-col">
+          <button
+            onClick={(e) => {
+              setMarkerType(AidType.AirFood);
+            }}
+          >
+            Air Food
+          </button>
+          <button
+            onClick={(e) => {
+              setMarkerType(AidType.WaterFood);
+            }}
+          >
+            Water Food
+          </button>
+          <button
+            onClick={(e) => {
+              setMarkerType(AidType.AirSoldier);
+            }}
+          >
+            Air Solider
+          </button>
+          <button
+            onClick={(e) => {
+              setMarkerType(AidType.WaterSoldier);
+            }}
+          >
+            Water Food
+          </button>
+        </div>
       </div>
       <div id="map" style={{ width: "100%", height: "100vh" }}></div>
     </div>
