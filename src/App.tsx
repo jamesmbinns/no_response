@@ -1,5 +1,11 @@
 import { useEffect, useState, useCallback } from "react";
-import { Feature, GeoJsonObject } from "geojson";
+import {
+  Feature,
+  GeoJsonObject,
+  GeoJSON,
+  GeoJsonProperties,
+  Geometry,
+} from "geojson";
 import { booleanOverlap } from "@turf/boolean-overlap";
 import "./App.css";
 import "leaflet/dist/leaflet.css";
@@ -37,7 +43,7 @@ const getMarkerData = (markerType: AidType) => {
 
     case AidType.WaterSoldier:
       return {
-        color: "red",
+        color: "blue",
         radius: 200,
       };
 
@@ -95,14 +101,14 @@ const App = () => {
   const [markerType, setMarkerType] = useState<AidType>();
   const [supplyDrop, setSupplyDrop] = useState<L.Marker>();
   const [supplyDropCircle, setSupplyDropCircle] = useState<L.Circle>();
-
-  let dwellings: any;
-  let border: any;
+  const [dwellings, setDwellings] =
+    useState<GeoJSON<GeoJsonProperties, Geometry>>();
+  const [border, setBorder] = useState<GeoJSON<GeoJsonProperties, Geometry>>();
 
   const resetHighlight = (e: L.LayerEvent) => {
     const layer = e.target;
     layer.closePopup();
-    dwellings.resetStyle(e.target);
+    dwellings?.resetStyle(e.target);
   };
 
   const zoomToFeature = (e: L.LayerEvent) => {
@@ -117,34 +123,83 @@ const App = () => {
     });
   };
 
-  const checkOverlap = () => {
-    let overlap = false;
+  // function SelectPoints(lat,lon){
+  // 	xy = [lat,lon];  //center point of circle
+  // 	dist = 150;  // 150 miles,
+  // 	var theRadius = dist * 1609.34  //1609.34 meters in a mile
 
-    var layers = map?.eachLayer((layer: L.Layer) => {
-      let layerOverlaps = false;
+  // 	selPts.length =0;  //Reset the array if selecting new points
 
-      if (layer._pxBounds && supplyDropCircle) {
-        layerOverlaps = supplyDropCircle!.getBounds().contains(layer._pxBounds);
+  // 	sites.eachLayer(function (layer) {
+  // 		// Lat, long of current point as it loops through.
+  // 		layer_lat_long = layer.getLatLng();
 
-        if (layer._pxBounds) {
-          console.log("===layer._pxBounds", layer._pxBounds);
+  // 		// Distance from our circle marker To current point in meters
+  // 		distance_from_centerPoint = layer_lat_long.distanceTo(xy);
+
+  // 		// See if meters is within radius, add the to array
+  // 		if (distance_from_centerPoint <= theRadius) {
+  // 			 selPts.push(layer.feature);
+  // 		}
+  // 	});
+
+  // 	// draw circle to see the selection area
+  // 	theCircle = L.circle(xy, theRadius , {   /// Number is in Meters
+  // 	  color: 'orange',
+  // 	  fillOpacity: 0,
+  // 	  opacity: 1
+  // 	}).addTo(map);
+
+  // 	//Symbolize the Selected Points
+  // 		 geojsonLayer = L.geoJson(selPts, {
+
+  // 			pointToLayer: function(feature, latlng) {
+  // 				return L.circleMarker(latlng, {
+  // 				radius: 4, //expressed in pixels circle size
+  // 				color: "green",
+  // 				stroke: true,
+  // 				weight: 7,		//outline width  increased width to look like a filled circle.
+  // 				fillOpcaity: 1
+  // 				});
+  // 				}
+  // 		});
+  // 		//Add selected points back into map as green circles.
+  // 		map.addLayer(geojsonLayer);
+
+  // 		//Take array of features and make a GeoJSON feature collection
+  // 		var GeoJS = { type: "FeatureCollection",  features: selPts   };
+  // 		//Show number of selected features.
+  // 		console.log(GeoJS.features.length +" Selected features");
+  // 		 // show selected GEOJSON data in console
+  // 		console.log(JSON.stringify(GeoJS));
+  // }	//end of SelectPoints function
+
+  useEffect(() => {
+    const markerData = getMarkerData(markerType!);
+    if (dwellings && supplyDrop && markerData) {
+      dwellings.eachLayer((layer: any) => {
+        const distance = supplyDrop
+          ?.getLatLng()
+          .distanceTo([
+            layer.getBounds()._northEast.lat,
+            layer.getBounds()._northEast.lng,
+          ]);
+
+        if (distance <= markerData?.radius) {
+          layer.setStyle({
+            fillColor: "red",
+            fillOpacity: 1,
+          });
+          layer.bringToFront();
+        } else {
+          layer.setStyle({
+            fillColor: "red",
+            fillOpacity: 0.5,
+          });
         }
-
-        if (layerOverlaps) {
-          console.log("===this one is good");
-          overlap = true;
-        }
-      }
-
-      console.log("===layerOverlaps", layerOverlaps);
-    });
-
-    console.log("===overlap", overlap);
-
-    // layers.forEach((layer: L.Layer) => {
-    //   console.log("===layer", layer);
-    // });
-  };
+      });
+    }
+  }, [supplyDrop]);
 
   const handleMapClick = useCallback(
     (e: L.LeafletMouseEvent) => {
@@ -156,6 +211,8 @@ const App = () => {
 
       const markerData = getMarkerData(markerType!);
 
+      if (!markerType) return;
+
       let circle = L.circle([e.latlng.lat, e.latlng.lng], {
         color: markerData.color,
         fillColor: markerData.color,
@@ -163,6 +220,7 @@ const App = () => {
         radius: markerData.radius!,
         weight: 3,
         dashArray: "3",
+        className: "marker",
       }).addTo(map!);
 
       setSupplyDropCircle(circle);
@@ -175,14 +233,30 @@ const App = () => {
       });
 
       // Add a marker to the clicked area
-      let drop = L.marker([e.latlng.lat, e.latlng.lng], { icon }).addTo(map!);
+      let drop = L.marker([e.latlng.lat, e.latlng.lng], {
+        icon,
+      }).addTo(map!);
 
       setSupplyDrop(drop);
-
-      checkOverlap();
     },
     [map, markerType, supplyDrop, supplyDropCircle]
   );
+
+  const gameInit = () => {
+    // Game init
+    if (!dwellings) return;
+    dwellings._layers = Object.keys(dwellings?._layers).reduce((acc, key) => {
+      let newLayer = dwellings?._layers[key];
+      // Apply your transformation here
+      // ex. newLayer.feature.properties.call_sign = Date.now();
+      acc[key as keyof Object] = newLayer;
+      return acc;
+    }, {});
+    // End game init
+
+    border.addTo(map);
+    dwellings.addTo(map);
+  };
 
   useEffect(() => {
     if (map) return;
@@ -201,31 +275,29 @@ const App = () => {
     }).addTo(aMap);
 
     // Add border
-    border = L.geoJson(borderJSON as GeoJsonObject, {
+    const bord = L.geoJson(borderJSON as GeoJsonObject, {
       style: borderStyle,
     });
 
+    setBorder(bord);
+
     // Add dwellings
-    dwellings = L.geoJson(dwellingsJSON as GeoJsonObject, {
+    const dwells = L.geoJson(dwellingsJSON as GeoJsonObject, {
       style: dwellingsStyle,
       onEachFeature: onEachFeature,
     });
 
-    // Game init
-    dwellings._layers = Object.keys(dwellings._layers).reduce((acc, key) => {
-      let newLayer = dwellings._layers[key];
-      // Apply your transformation here
-      // ex. newLayer.feature.properties.call_sign = Date.now();
-      acc[key as keyof Object] = newLayer;
-      return acc;
-    }, {});
-    // End game init
-
-    border.addTo(aMap);
-    dwellings.addTo(aMap);
+    setDwellings(dwells);
   }, []);
 
   useEffect(() => {
+    if (dwellings && border && map) {
+      gameInit();
+    }
+  }, [dwellings, border, map]);
+
+  useEffect(() => {
+    console.log("===useEffect:handleMapClick");
     if (map) {
       // Map Events
       map.on("click", handleMapClick);
