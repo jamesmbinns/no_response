@@ -8,6 +8,7 @@ import { AidType } from "./map_types";
 import {
   getMarkerData,
   borderStyle,
+  altBorderStyle,
   dwellingsStyle,
   highlightFeature,
   resetHighlight,
@@ -27,12 +28,26 @@ const App = () => {
   const handleDwellingClick = useCallback(
     (e: L.LayerEvent) => {
       var layer = e.target;
+      console.log("===handleDwellingClick:layer.feature", layer.feature);
       var properties = layer.feature.properties;
       layer
         .bindPopup(
           `<div><div>ID: ${properties.id}</div><div>Type: ${properties.type}</div><div>Soliders? - ${properties.soldiers}</div><div>Max Occupancy: ${properties.max_occupancy}</div></div>`
         )
         .openPopup();
+    },
+    [markerType]
+  );
+
+  const borderMouseover = useCallback(
+    (e: L.LayerEvent) => {
+      if ([AidType.WaterFood, AidType.WaterSoldier].includes(markerType!)) {
+        var layer = e.target;
+
+        layer.setStyle(altBorderStyle());
+      }
+
+      setInsideBorder(true);
     },
     [markerType]
   );
@@ -172,10 +187,11 @@ const App = () => {
       style: borderStyle,
       onEachFeature: (_feature: Feature, layer: L.Layer) => {
         layer.on({
-          mouseover: () => {
-            setInsideBorder(true);
-          },
-          mouseout: () => {
+          mouseout: (e: L.LayerEvent) => {
+            var layer = e.target;
+
+            layer.setStyle(borderStyle());
+
             setInsideBorder(false);
           },
         });
@@ -209,9 +225,17 @@ const App = () => {
     if (map) {
       // Map Events
       map.on("click", handleMapClick);
+      border.on("mouseover", borderMouseover);
+      // dwellings.on("click", (e: L.LayerEvent) => {
+      //   handleDwellingClick(e);
+      // });
 
       return () => {
         map.off("click", handleMapClick);
+        border.off("mouseover", borderMouseover);
+        // dwellings.off("click", (e: L.LayerEvent) => {
+        //   handleDwellingClick(e);
+        // });
       };
     }
   }, [map, markerType, supplyDrop, supplyDropCircle, insideBorder]);

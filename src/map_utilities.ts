@@ -45,6 +45,17 @@ export const borderStyle = () => {
   };
 };
 
+export const altBorderStyle = () => {
+  return {
+    weight: 2,
+    dashArray: "3",
+    opacity: 1,
+    color: "yellow",
+    fillColor: "yellow",
+    fillOpacity: 0.5,
+  };
+};
+
 export const dwellingsStyle = (color: string) => {
   return {
     fillColor: color,
