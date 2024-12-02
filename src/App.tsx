@@ -1,179 +1,43 @@
 import { useEffect, useState, useCallback } from "react";
-import {
-  Feature,
-  GeoJsonObject,
-  GeoJSON,
-  GeoJsonProperties,
-  Geometry,
-} from "geojson";
-import { booleanOverlap } from "@turf/boolean-overlap";
+import { Feature, GeoJsonObject } from "geojson";
 import "./App.css";
 import "leaflet/dist/leaflet.css";
 import borderJSON from "./assets/border.json";
 import dwellingsJSON from "./assets/dwellings.json";
-
+import { AidType } from "./map_types";
+import {
+  getMarkerData,
+  borderStyle,
+  dwellingsStyle,
+  highlightFeature,
+  resetHighlight,
+} from "./map_utilities";
 import L from "leaflet";
-
-enum AidType {
-  AirFood = "air_food",
-  WaterFood = "water_food",
-  AirSoldier = "air_soldier",
-  WaterSoldier = "water_soldier",
-}
-
-const getMarkerData = (markerType: AidType) => {
-  switch (markerType) {
-    case AidType.AirFood:
-      return {
-        color: "red",
-        radius: 100,
-      };
-
-    case AidType.WaterFood:
-      return {
-        color: "blue",
-        radius: 200,
-      };
-
-    case AidType.AirSoldier:
-      return {
-        color: "red",
-        radius: 100,
-      };
-
-    case AidType.WaterSoldier:
-      return {
-        color: "blue",
-        radius: 200,
-      };
-
-    default:
-      return {
-        color: "white",
-        width: 300,
-      };
-  }
-};
-
-const borderStyle = () => {
-  return {
-    weight: 2,
-    dashArray: "3",
-    opacity: 0.5,
-    color: "yellow",
-    fillOpacity: 0,
-  };
-};
-
-const dwellingsStyle = () => {
-  return {
-    fillColor: "red",
-    weight: 1,
-    opacity: 0.8,
-    color: "white",
-    dashArray: "3",
-    fillOpacity: 0.2,
-  };
-};
-
-const highlightFeature = (e: L.LayerEvent) => {
-  var layer = e.target;
-  var properties = layer.feature.properties;
-
-  layer.setStyle({
-    weight: 2,
-    color: "#CCC",
-    dashArray: "",
-    fillOpacity: 0.7,
-  });
-
-  layer
-    .bindPopup(
-      `<div><div>ID: ${properties.id}</div><div>Type: ${properties.type}</div><div>Max Occupancy: ${properties.max_occupancy}</div></div>`
-    )
-    .openPopup();
-
-  layer.bringToFront();
-};
 
 const App = () => {
   const [map, setMap] = useState<L.Map>();
   const [markerType, setMarkerType] = useState<AidType>();
   const [supplyDrop, setSupplyDrop] = useState<L.Marker>();
   const [supplyDropCircle, setSupplyDropCircle] = useState<L.Circle>();
-  const [dwellings, setDwellings] =
-    useState<GeoJSON<GeoJsonProperties, Geometry>>();
-  const [border, setBorder] = useState<GeoJSON<GeoJsonProperties, Geometry>>();
+  const [dwellings, setDwellings] = useState<any>();
+  const [border, setBorder] = useState<any>();
+  const [clearMap, setClearMap] = useState<boolean>(false);
+  const [insideBorder, setInsideBorder] = useState<boolean>(false);
 
-  const resetHighlight = (e: L.LayerEvent) => {
-    const layer = e.target;
-    layer.closePopup();
-    dwellings?.resetStyle(e.target);
-  };
+  const handleDwellingClick = useCallback(
+    (e: L.LayerEvent) => {
+      var layer = e.target;
+      var properties = layer.feature.properties;
+      layer
+        .bindPopup(
+          `<div><div>ID: ${properties.id}</div><div>Type: ${properties.type}</div><div>Soliders? - ${properties.soldiers}</div><div>Max Occupancy: ${properties.max_occupancy}</div></div>`
+        )
+        .openPopup();
+    },
+    [markerType]
+  );
 
-  const zoomToFeature = (e: L.LayerEvent) => {
-    map?.fitBounds(e.target.getBounds());
-  };
-
-  const onEachFeature = (_feature: Feature, layer: L.Layer) => {
-    layer.on({
-      mouseover: highlightFeature,
-      mouseout: resetHighlight,
-      click: zoomToFeature,
-    });
-  };
-
-  // function SelectPoints(lat,lon){
-  // 	xy = [lat,lon];  //center point of circle
-  // 	dist = 150;  // 150 miles,
-  // 	var theRadius = dist * 1609.34  //1609.34 meters in a mile
-
-  // 	selPts.length =0;  //Reset the array if selecting new points
-
-  // 	sites.eachLayer(function (layer) {
-  // 		// Lat, long of current point as it loops through.
-  // 		layer_lat_long = layer.getLatLng();
-
-  // 		// Distance from our circle marker To current point in meters
-  // 		distance_from_centerPoint = layer_lat_long.distanceTo(xy);
-
-  // 		// See if meters is within radius, add the to array
-  // 		if (distance_from_centerPoint <= theRadius) {
-  // 			 selPts.push(layer.feature);
-  // 		}
-  // 	});
-
-  // 	// draw circle to see the selection area
-  // 	theCircle = L.circle(xy, theRadius , {   /// Number is in Meters
-  // 	  color: 'orange',
-  // 	  fillOpacity: 0,
-  // 	  opacity: 1
-  // 	}).addTo(map);
-
-  // 	//Symbolize the Selected Points
-  // 		 geojsonLayer = L.geoJson(selPts, {
-
-  // 			pointToLayer: function(feature, latlng) {
-  // 				return L.circleMarker(latlng, {
-  // 				radius: 4, //expressed in pixels circle size
-  // 				color: "green",
-  // 				stroke: true,
-  // 				weight: 7,		//outline width  increased width to look like a filled circle.
-  // 				fillOpcaity: 1
-  // 				});
-  // 				}
-  // 		});
-  // 		//Add selected points back into map as green circles.
-  // 		map.addLayer(geojsonLayer);
-
-  // 		//Take array of features and make a GeoJSON feature collection
-  // 		var GeoJS = { type: "FeatureCollection",  features: selPts   };
-  // 		//Show number of selected features.
-  // 		console.log(GeoJS.features.length +" Selected features");
-  // 		 // show selected GEOJSON data in console
-  // 		console.log(JSON.stringify(GeoJS));
-  // }	//end of SelectPoints function
-
+  // Supply Drop event #2
   useEffect(() => {
     const markerData = getMarkerData(markerType!);
     if (dwellings && supplyDrop && markerData) {
@@ -187,19 +51,37 @@ const App = () => {
 
         if (distance <= markerData?.radius) {
           layer.setStyle({
-            fillColor: "red",
             fillOpacity: 1,
           });
+          layer.setStyle(dwellingsStyle(markerData.color));
+
+          if (
+            [AidType.AirSoldier, AidType.WaterSoldier].includes(markerType!)
+          ) {
+            layer.feature.properties.soldiers = true;
+          }
+
           layer.bringToFront();
-        } else {
-          layer.setStyle({
-            fillColor: "red",
-            fillOpacity: 0.5,
-          });
         }
       });
     }
   }, [supplyDrop]);
+
+  // Supply Drop event #1
+  useEffect(() => {
+    if (clearMap && supplyDrop && supplyDropCircle) {
+      map?.removeLayer(supplyDrop);
+      map?.removeLayer(supplyDropCircle);
+
+      dwellings.eachLayer((layer: any) => {
+        layer.setStyle(
+          dwellingsStyle(layer.feature.properties.soldiers ? "red" : "grey")
+        );
+      });
+
+      setClearMap(false);
+    }
+  }, [clearMap, map, supplyDrop, supplyDropCircle]);
 
   const handleMapClick = useCallback(
     (e: L.LeafletMouseEvent) => {
@@ -212,6 +94,14 @@ const App = () => {
       const markerData = getMarkerData(markerType!);
 
       if (!markerType) return;
+
+      // Check for water-based supply drops
+      if (
+        [AidType.WaterFood, AidType.WaterSoldier].includes(markerType) &&
+        insideBorder
+      ) {
+        return;
+      }
 
       let circle = L.circle([e.latlng.lat, e.latlng.lng], {
         color: markerData.color,
@@ -238,21 +128,24 @@ const App = () => {
       }).addTo(map!);
 
       setSupplyDrop(drop);
+
+      setTimeout(() => {
+        setClearMap(true);
+      }, 5000);
     },
-    [map, markerType, supplyDrop, supplyDropCircle]
+    [map, markerType, supplyDrop, supplyDropCircle, insideBorder]
   );
 
+  // Game inititalization
   const gameInit = () => {
-    // Game init
     if (!dwellings) return;
     dwellings._layers = Object.keys(dwellings?._layers).reduce((acc, key) => {
       let newLayer = dwellings?._layers[key];
       // Apply your transformation here
-      // ex. newLayer.feature.properties.call_sign = Date.now();
+      newLayer.feature.properties.soldiers = false;
       acc[key as keyof Object] = newLayer;
       return acc;
     }, {});
-    // End game init
 
     border.addTo(map);
     dwellings.addTo(map);
@@ -275,16 +168,32 @@ const App = () => {
     }).addTo(aMap);
 
     // Add border
-    const bord = L.geoJson(borderJSON as GeoJsonObject, {
+    const bord: L.GeoJSON = L.geoJson(borderJSON as GeoJsonObject, {
       style: borderStyle,
+      onEachFeature: (_feature: Feature, layer: L.Layer) => {
+        layer.on({
+          mouseover: () => {
+            setInsideBorder(true);
+          },
+          mouseout: () => {
+            setInsideBorder(false);
+          },
+        });
+      },
     });
 
     setBorder(bord);
 
     // Add dwellings
-    const dwells = L.geoJson(dwellingsJSON as GeoJsonObject, {
-      style: dwellingsStyle,
-      onEachFeature: onEachFeature,
+    const dwells: L.GeoJSON = L.geoJson(dwellingsJSON as GeoJsonObject, {
+      style: dwellingsStyle("grey"),
+      onEachFeature: (_feature: Feature, layer: L.Layer) => {
+        layer.on({
+          mouseover: highlightFeature,
+          mouseout: resetHighlight,
+          click: handleDwellingClick,
+        });
+      },
     });
 
     setDwellings(dwells);
@@ -297,7 +206,6 @@ const App = () => {
   }, [dwellings, border, map]);
 
   useEffect(() => {
-    console.log("===useEffect:handleMapClick");
     if (map) {
       // Map Events
       map.on("click", handleMapClick);
@@ -306,7 +214,7 @@ const App = () => {
         map.off("click", handleMapClick);
       };
     }
-  }, [map, markerType, supplyDrop, supplyDropCircle]);
+  }, [map, markerType, supplyDrop, supplyDropCircle, insideBorder]);
 
   return (
     <div className="flex flex-row">
@@ -339,7 +247,7 @@ const App = () => {
               setMarkerType(AidType.WaterSoldier);
             }}
           >
-            Water Food
+            Water Soldier
           </button>
         </div>
       </div>
