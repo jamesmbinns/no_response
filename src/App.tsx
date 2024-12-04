@@ -29,6 +29,7 @@ const App = () => {
     (e: L.LayerEvent) => {
       var layer = e.target;
       console.log("===handleDwellingClick:layer.feature", layer.feature);
+      console.log("===handleDwellingClick:markerType", markerType);
       var properties = layer.feature.properties;
       layer
         .bindPopup(
@@ -151,21 +152,7 @@ const App = () => {
     [map, markerType, supplyDrop, supplyDropCircle, insideBorder]
   );
 
-  // Game inititalization
-  const gameInit = () => {
-    if (!dwellings) return;
-    dwellings._layers = Object.keys(dwellings?._layers).reduce((acc, key) => {
-      let newLayer = dwellings?._layers[key];
-      // Apply your transformation here
-      newLayer.feature.properties.soldiers = false;
-      acc[key as keyof Object] = newLayer;
-      return acc;
-    }, {});
-
-    border.addTo(map);
-    dwellings.addTo(map);
-  };
-
+  // Game Init #1
   useEffect(() => {
     if (map) return;
 
@@ -203,6 +190,7 @@ const App = () => {
     // Add dwellings
     const dwells: L.GeoJSON = L.geoJson(dwellingsJSON as GeoJsonObject, {
       style: dwellingsStyle("grey"),
+      bubblingMouseEvents: false,
       onEachFeature: (_feature: Feature, layer: L.Layer) => {
         layer.on({
           mouseover: highlightFeature,
@@ -215,9 +203,20 @@ const App = () => {
     setDwellings(dwells);
   }, []);
 
+  // Game Init 32
   useEffect(() => {
     if (dwellings && border && map) {
-      gameInit();
+      if (!dwellings) return;
+      dwellings._layers = Object.keys(dwellings?._layers).reduce((acc, key) => {
+        let newLayer = dwellings?._layers[key];
+        // Apply your transformation here
+        newLayer.feature.properties.soldiers = false;
+        acc[key as keyof Object] = newLayer;
+        return acc;
+      }, {});
+
+      border.addTo(map);
+      dwellings.addTo(map);
     }
   }, [dwellings, border, map]);
 
@@ -226,16 +225,10 @@ const App = () => {
       // Map Events
       map.on("click", handleMapClick);
       border.on("mouseover", borderMouseover);
-      // dwellings.on("click", (e: L.LayerEvent) => {
-      //   handleDwellingClick(e);
-      // });
 
       return () => {
         map.off("click", handleMapClick);
         border.off("mouseover", borderMouseover);
-        // dwellings.off("click", (e: L.LayerEvent) => {
-        //   handleDwellingClick(e);
-        // });
       };
     }
   }, [map, markerType, supplyDrop, supplyDropCircle, insideBorder]);
