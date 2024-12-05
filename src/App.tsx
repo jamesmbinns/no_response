@@ -17,11 +17,12 @@ import L from "leaflet";
 
 const App = () => {
   const [map, setMap] = useState<L.Map>();
-  const [markerType, setMarkerType] = useState<AidType>();
+  const [markerType, setMarkerType] = useState<AidType | null>();
   const [supplyDrop, setSupplyDrop] = useState<L.Marker>();
   const [supplyDropCircle, setSupplyDropCircle] = useState<L.Circle>();
   const [dwellings, setDwellings] = useState<any>();
   const [border, setBorder] = useState<any>();
+  const [hordes, setHordes] = useState<any>();
   const [clearMap, setClearMap] = useState<boolean>(false);
   const [insideBorder, setInsideBorder] = useState<boolean>(false);
 
@@ -33,7 +34,7 @@ const App = () => {
       var properties = layer.feature.properties;
       layer
         .bindPopup(
-          `<div><div>ID: ${properties.id}</div><div>Type: ${properties.type}</div><div>Soliders? - ${properties.soldiers}</div><div>Max Occupancy: ${properties.max_occupancy}</div></div>`
+          `<div><div>ID: ${properties.id}</div><div>Type: ${properties.type}</div><div>Soldiers: ${properties.soldiers}</div><div>Max Occupancy: ${properties.max_occupancy}</div></div>`
         )
         .openPopup();
     },
@@ -53,36 +54,6 @@ const App = () => {
     [markerType]
   );
 
-  // Supply Drop event #2
-  useEffect(() => {
-    const markerData = getMarkerData(markerType!);
-    if (dwellings && supplyDrop && markerData) {
-      dwellings.eachLayer((layer: any) => {
-        const distance = supplyDrop
-          ?.getLatLng()
-          .distanceTo([
-            layer.getBounds()._northEast.lat,
-            layer.getBounds()._northEast.lng,
-          ]);
-
-        if (distance <= markerData?.radius) {
-          layer.setStyle({
-            fillOpacity: 1,
-          });
-          layer.setStyle(dwellingsStyle(markerData.color));
-
-          if (
-            [AidType.AirSoldier, AidType.WaterSoldier].includes(markerType!)
-          ) {
-            layer.feature.properties.soldiers = true;
-          }
-
-          layer.bringToFront();
-        }
-      });
-    }
-  }, [supplyDrop]);
-
   // Supply Drop event #1
   useEffect(() => {
     if (clearMap && supplyDrop && supplyDropCircle) {
@@ -99,58 +70,38 @@ const App = () => {
     }
   }, [clearMap, map, supplyDrop, supplyDropCircle]);
 
-  const handleMapClick = useCallback(
-    (e: L.LeafletMouseEvent) => {
-      // Clear existing marker and circle
-      if (supplyDrop && supplyDropCircle) {
-        map?.removeLayer(supplyDrop);
-        map?.removeLayer(supplyDropCircle);
-      }
+  // Supply Drop event #2
+  useEffect(() => {
+    const markerData = getMarkerData(markerType!);
+    if (dwellings && supplyDrop && markerData) {
+      dwellings.eachLayer((layer: any) => {
+        const distance = supplyDrop
+          ?.getLatLng()
+          .distanceTo([
+            layer.getBounds()._northEast.lat,
+            layer.getBounds()._northEast.lng,
+          ]);
 
-      const markerData = getMarkerData(markerType!);
+        console.log("==distance", distance);
+        console.log("==markerData", markerData);
+        if (distance <= markerData?.radius) {
+          console.log("===inside HERERERE");
+          layer.setStyle({
+            fillOpacity: 1,
+          });
+          layer.setStyle(dwellingsStyle(markerData.color));
 
-      if (!markerType) return;
+          if (
+            [AidType.AirSoldier, AidType.WaterSoldier].includes(markerType!)
+          ) {
+            layer.feature.properties.soldiers = 2;
+          }
 
-      // Check for water-based supply drops
-      if (
-        [AidType.WaterFood, AidType.WaterSoldier].includes(markerType) &&
-        insideBorder
-      ) {
-        return;
-      }
-
-      let circle = L.circle([e.latlng.lat, e.latlng.lng], {
-        color: markerData.color,
-        fillColor: markerData.color,
-        fillOpacity: 0.2,
-        radius: markerData.radius!,
-        weight: 3,
-        dashArray: "3",
-        className: "marker",
-      }).addTo(map!);
-
-      setSupplyDropCircle(circle);
-
-      var icon = L.icon({
-        iconUrl: `/src/assets/${markerType}.png`,
-
-        iconSize: [30, 51], // size of the icon
-        popupAnchor: [-3, -76], // point from which the popup should open relative to the iconAnchor
+          layer.bringToFront();
+        }
       });
-
-      // Add a marker to the clicked area
-      let drop = L.marker([e.latlng.lat, e.latlng.lng], {
-        icon,
-      }).addTo(map!);
-
-      setSupplyDrop(drop);
-
-      setTimeout(() => {
-        setClearMap(true);
-      }, 5000);
-    },
-    [map, markerType, supplyDrop, supplyDropCircle, insideBorder]
-  );
+    }
+  }, [supplyDrop]);
 
   // Game Init #1
   useEffect(() => {
@@ -203,23 +154,105 @@ const App = () => {
     setDwellings(dwells);
   }, []);
 
-  // Game Init 32
+  // Game Init #2
   useEffect(() => {
     if (dwellings && border && map) {
       if (!dwellings) return;
       dwellings._layers = Object.keys(dwellings?._layers).reduce((acc, key) => {
         let newLayer = dwellings?._layers[key];
         // Apply your transformation here
-        newLayer.feature.properties.soldiers = false;
+        newLayer.feature.properties.soldiers = 0;
         acc[key as keyof Object] = newLayer;
         return acc;
       }, {});
 
+      // Add hordes
+      var icon = L.icon({
+        iconUrl: `/src/assets/zombie.png`,
+
+        iconSize: [30, 51], // size of the icon
+        popupAnchor: [-3, -76], // point from which the popup should open relative to the iconAnchor
+      });
+
+      const bordCenter = border.getBounds().getCenter();
+
+      let hordeCircle = L.circle([bordCenter.lat, bordCenter.lng], {
+        color: "yellow",
+        fillColor: "yellow",
+        fillOpacity: 0.2,
+        radius: 100,
+        weight: 3,
+        dashArray: "3",
+        className: "horde",
+      }).addTo(map!);
+
+      // Add a horde to the map center
+      let horde = L.marker([bordCenter.lat, bordCenter.lng], {
+        icon,
+      }).addTo(map!);
+
+      console.log("==horde", horde);
+
       border.addTo(map);
       dwellings.addTo(map);
     }
-  }, [dwellings, border, map]);
+  }, [dwellings, border, hordes, map]);
 
+  const handleMapClick = useCallback(
+    (e: L.LeafletMouseEvent) => {
+      // Clear existing marker and circle
+      if (supplyDrop && supplyDropCircle) {
+        map?.removeLayer(supplyDrop);
+        map?.removeLayer(supplyDropCircle);
+      }
+
+      const markerData = getMarkerData(markerType!);
+
+      if (!markerType) return;
+
+      // Check for water-based supply drops
+      if (
+        [AidType.WaterFood, AidType.WaterSoldier].includes(markerType) &&
+        insideBorder
+      ) {
+        return;
+      }
+
+      let circle = L.circle([e.latlng.lat, e.latlng.lng], {
+        color: markerData.color,
+        fillColor: markerData.color,
+        fillOpacity: 0.2,
+        radius: markerData.radius!,
+        weight: 3,
+        dashArray: "3",
+        className: "marker",
+      }).addTo(map!);
+
+      setSupplyDropCircle(circle);
+
+      var icon = L.icon({
+        iconUrl: `/src/assets/${markerType}.png`,
+
+        iconSize: [30, 51], // size of the icon
+        popupAnchor: [-3, -76], // point from which the popup should open relative to the iconAnchor
+      });
+
+      // Add a marker to the clicked area
+      let drop = L.marker([e.latlng.lat, e.latlng.lng], {
+        icon,
+      }).addTo(map!);
+
+      setSupplyDrop(drop);
+
+      setTimeout(() => {
+        setClearMap(true);
+        setMarkerType(null);
+      }, 5000);
+    },
+    [map, markerType, supplyDrop, supplyDropCircle, insideBorder]
+  );
+
+  // Handle clicks
   useEffect(() => {
     if (map) {
       // Map Events
