@@ -23,7 +23,6 @@ const App = () => {
   const [map, setMap] = useState<L.Map>();
   const [markerType, setMarkerType] = useState<AidType | null>();
   const [supplyDrop, setSupplyDrop] = useState<L.Marker>();
-  const [supplyDropCircle, setSupplyDropCircle] = useState<L.Circle>();
   const [dwellings, setDwellings] = useState<any>();
   const [border, setBorder] = useState<any>();
   const [hordes, setHordes] = useState<any>([]);
@@ -196,12 +195,6 @@ const App = () => {
 
   const handleMapClick = useCallback(
     (e: L.LeafletMouseEvent) => {
-      // Clear existing marker and circle
-      if (supplyDrop && supplyDropCircle) {
-        map?.removeLayer(supplyDrop);
-        map?.removeLayer(supplyDropCircle);
-      }
-
       const markerData = getMarkerData(markerType!);
 
       if (!markerType) return;
@@ -214,7 +207,7 @@ const App = () => {
         return;
       }
 
-      let circle = L.circle([e.latlng.lat, e.latlng.lng], {
+      L.circle([e.latlng.lat, e.latlng.lng], {
         color: markerData.color,
         fillColor: markerData.color,
         fillOpacity: 0.2,
@@ -222,9 +215,7 @@ const App = () => {
         weight: 3,
         dashArray: "3",
         className: "marker",
-      }).addTo(map!);
-
-      setSupplyDropCircle(circle);
+      }).addTo(supplyLayer);
 
       var icon = L.icon({
         iconUrl: `/src/assets/${markerType}.png`,
@@ -236,7 +227,7 @@ const App = () => {
       // Add a marker to the clicked area
       let drop = L.marker([e.latlng.lat, e.latlng.lng], {
         icon,
-      }).addTo(map!);
+      }).addTo(supplyLayer);
 
       setSupplyDrop(drop);
 
@@ -245,12 +236,12 @@ const App = () => {
         setClearMap(true);
       }, 5000);
     },
-    [map, markerType, supplyDrop, supplyDropCircle]
+    [map, markerType, supplyLayer]
   );
 
   // Supply Drop event #1
   useEffect(() => {
-    if (clearMap && supplyDrop && supplyDropCircle) {
+    if (clearMap) {
       supplyLayer.clearLayers();
 
       dwellings.eachLayer((layer: any) => {
@@ -261,7 +252,7 @@ const App = () => {
 
       setClearMap(false);
     }
-  }, [clearMap, map, supplyLayer]);
+  }, [clearMap, supplyLayer]);
 
   // Supply Drop event #2
   useEffect(() => {

@@ -101,7 +101,6 @@ export const pointInBorder = (lng: number, lat: number, border: any) => {
 export const handleDwellingClick = (e: L.LayerEvent) => {
   var layer = e.target;
   var properties = layer.feature.properties;
-  console.log("===handleDwellingClick:layer.feature", layer.feature);
 
   layer
     .bindPopup(
