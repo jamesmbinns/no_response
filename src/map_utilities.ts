@@ -1,5 +1,6 @@
 import { AidType } from "./map_types";
 import L from "leaflet";
+import * as turf from "@turf/turf";
 
 export const getMarkerData = (markerType: AidType) => {
   switch (markerType) {
@@ -86,4 +87,25 @@ export const resetHighlight = (e: L.LayerEvent) => {
   layer.setStyle(
     dwellingsStyle(layer.feature.properties.soldiers ? "red" : "grey")
   );
+};
+
+export const pointInBorder = (lng: number, lat: number, border: any) => {
+  const point = turf.point([lng, lat]);
+  const poly = turf.polygon(
+    border.toGeoJSON().features[0].geometry.coordinates
+  );
+
+  return turf.booleanPointInPolygon(point, poly);
+};
+
+export const handleDwellingClick = (e: L.LayerEvent) => {
+  var layer = e.target;
+  var properties = layer.feature.properties;
+  console.log("===handleDwellingClick:layer.feature", layer.feature);
+
+  layer
+    .bindPopup(
+      `<div><div>ID: ${properties.id}</div><div>Type: ${properties.type}</div><div>Soldiers: ${properties.soldiers}</div><div>Max Occupancy: ${properties.max_occupancy}</div></div>`
+    )
+    .openPopup();
 };

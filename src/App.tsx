@@ -12,115 +12,37 @@ import {
   dwellingsStyle,
   highlightFeature,
   resetHighlight,
+  pointInBorder,
+  handleDwellingClick,
 } from "./map_utilities";
 import L from "leaflet";
+import { computeDestinationPoint } from "geolib";
 
 const App = () => {
+  const [gameTime, setGameTime] = useState<number>(0);
   const [map, setMap] = useState<L.Map>();
   const [markerType, setMarkerType] = useState<AidType | null>();
   const [supplyDrop, setSupplyDrop] = useState<L.Marker>();
   const [supplyDropCircle, setSupplyDropCircle] = useState<L.Circle>();
   const [dwellings, setDwellings] = useState<any>();
   const [border, setBorder] = useState<any>();
-  const [hordes, setHordes] = useState<any>();
+  const [hordes, setHordes] = useState<any>([]);
+  const [hordesLayer, setHordesLayer] = useState<any>([]);
+  const [supplyLayer, setSupplyLayer] = useState<any>([]);
   const [clearMap, setClearMap] = useState<boolean>(false);
-  const [insideBorder, setInsideBorder] = useState<boolean>(false);
 
-  const handleDwellingClick = useCallback(
-    (e: L.LayerEvent) => {
-      var layer = e.target;
-      console.log("===handleDwellingClick:layer.feature", layer.feature);
-      console.log("===handleDwellingClick:markerType", markerType);
-      var properties = layer.feature.properties;
-      layer
-        .bindPopup(
-          `<div><div>ID: ${properties.id}</div><div>Type: ${properties.type}</div><div>Soldiers: ${properties.soldiers}</div><div>Max Occupancy: ${properties.max_occupancy}</div></div>`
-        )
-        .openPopup();
-    },
-    [markerType]
-  );
-
-  const borderMouseover = useCallback(
-    (e: L.LayerEvent) => {
-      if ([AidType.WaterFood, AidType.WaterSoldier].includes(markerType!)) {
-        var layer = e.target;
-
-        layer.setStyle(altBorderStyle());
+  // Game initialization
+  useEffect(() => {
+    const baseMapLayer = L.tileLayer(
+      "https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}",
+      {
+        maxZoom: 19,
+        attribution:
+          '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>',
       }
+    );
 
-      setInsideBorder(true);
-    },
-    [markerType]
-  );
-
-  // Supply Drop event #1
-  useEffect(() => {
-    if (clearMap && supplyDrop && supplyDropCircle) {
-      map?.removeLayer(supplyDrop);
-      map?.removeLayer(supplyDropCircle);
-
-      dwellings.eachLayer((layer: any) => {
-        layer.setStyle(
-          dwellingsStyle(layer.feature.properties.soldiers ? "red" : "grey")
-        );
-      });
-
-      setClearMap(false);
-    }
-  }, [clearMap, map, supplyDrop, supplyDropCircle]);
-
-  // Supply Drop event #2
-  useEffect(() => {
-    const markerData = getMarkerData(markerType!);
-    if (dwellings && supplyDrop && markerData) {
-      dwellings.eachLayer((layer: any) => {
-        const distance = supplyDrop
-          ?.getLatLng()
-          .distanceTo([
-            layer.getBounds()._northEast.lat,
-            layer.getBounds()._northEast.lng,
-          ]);
-
-        console.log("==distance", distance);
-        console.log("==markerData", markerData);
-        if (distance <= markerData?.radius) {
-          console.log("===inside HERERERE");
-          layer.setStyle({
-            fillOpacity: 1,
-          });
-          layer.setStyle(dwellingsStyle(markerData.color));
-
-          if (
-            [AidType.AirSoldier, AidType.WaterSoldier].includes(markerType!)
-          ) {
-            layer.feature.properties.soldiers = 2;
-          }
-
-          layer.bringToFront();
-        }
-      });
-    }
-  }, [supplyDrop]);
-
-  // Game Init #1
-  useEffect(() => {
-    if (map) return;
-
-    const aMap = L.map("map").setView([45.3946, -73.9579], 12);
-
-    setMap(aMap);
-
-    // Must stay locked on location
-    aMap.setMaxBounds(aMap.getBounds());
-
-    L.tileLayer("https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}", {
-      maxZoom: 19,
-      attribution:
-        '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>',
-    }).addTo(aMap);
-
-    // Add border
+    // Add border layer
     const bord: L.GeoJSON = L.geoJson(borderJSON as GeoJsonObject, {
       style: borderStyle,
       onEachFeature: (_feature: Feature, layer: L.Layer) => {
@@ -129,16 +51,13 @@ const App = () => {
             var layer = e.target;
 
             layer.setStyle(borderStyle());
-
-            setInsideBorder(false);
           },
         });
       },
     });
-
     setBorder(bord);
 
-    // Add dwellings
+    // Add dwellings layer
     const dwells: L.GeoJSON = L.geoJson(dwellingsJSON as GeoJsonObject, {
       style: dwellingsStyle("grey"),
       bubblingMouseEvents: false,
@@ -152,51 +71,128 @@ const App = () => {
     });
 
     setDwellings(dwells);
+
+    // Add supply layer
+    const suplyLyr = L.layerGroup();
+
+    setSupplyLayer(suplyLyr);
+
+    // Add hordes and hordes layer
+    const hordsLyr = L.layerGroup();
+
+    const bordCenter = bord.getBounds().getCenter();
+
+    setHordes([
+      {
+        id: "60a28b39-8755-494e-9e40-2e2c8fab8ea7",
+        size: 100,
+        lat: bordCenter.lat,
+        lng: bordCenter.lng,
+      },
+      {
+        id: "11a28b39-8755-494e-9e40-2e2c8fab8e11",
+        size: 200,
+        lat: bordCenter.lat,
+        lng: bordCenter.lng,
+      },
+    ]);
+
+    setHordesLayer(hordsLyr);
+
+    // Create map and add layers
+    const aMap = L.map("map", {
+      center: [45.3946, -73.9579],
+      zoom: 12,
+      layers: [baseMapLayer, bord, dwells, hordsLyr, suplyLyr],
+    });
+
+    setMap(aMap);
+
+    // Must stay locked on location
+    aMap.setMaxBounds(aMap.getBounds());
   }, []);
 
-  // Game Init #2
+  // Game loop
   useEffect(() => {
-    if (dwellings && border && map) {
-      if (!dwellings) return;
-      dwellings._layers = Object.keys(dwellings?._layers).reduce((acc, key) => {
-        let newLayer = dwellings?._layers[key];
-        // Apply your transformation here
-        newLayer.feature.properties.soldiers = 0;
-        acc[key as keyof Object] = newLayer;
-        return acc;
-      }, {});
+    const interval = setInterval(() => {
+      setGameTime(gameTime + 1000);
 
-      // Add hordes
-      var icon = L.icon({
-        iconUrl: `/src/assets/zombie.png`,
+      renderGame();
+    }, 1000);
 
-        iconSize: [30, 51], // size of the icon
-        popupAnchor: [-3, -76], // point from which the popup should open relative to the iconAnchor
-      });
+    const hordesInterval = setInterval(() => {
+      updateHordes();
+    }, 10000);
 
-      const bordCenter = border.getBounds().getCenter();
+    return () => {
+      clearInterval(interval);
+      clearInterval(hordesInterval);
+    };
+  }, [map]);
 
-      let hordeCircle = L.circle([bordCenter.lat, bordCenter.lng], {
+  const renderGame = () => {
+    renderHordes();
+
+    console.log("===GAME LOOP HEARTBEAT");
+  };
+
+  const renderHordes = useCallback(() => {
+    if (!hordes.length) return;
+
+    hordesLayer.clearLayers();
+
+    hordes.forEach((horde: any) => {
+      L.circle([horde.lat, horde.lng], {
         color: "yellow",
         fillColor: "yellow",
         fillOpacity: 0.2,
-        radius: 100,
+        radius: horde.size,
         weight: 3,
         dashArray: "3",
         className: "horde",
-      }).addTo(map!);
+      }).addTo(hordesLayer);
 
-      // Add a horde to the map center
-      let horde = L.marker([bordCenter.lat, bordCenter.lng], {
-        icon,
-      }).addTo(map!);
+      // Add a horde marker to the map center
+      L.marker([horde.lat, horde.lng], {
+        icon: L.icon({
+          iconUrl: `/src/assets/zombie.png`,
+          iconSize: [30, 51], // size of the icon
+          popupAnchor: [-3, -76], // point from which the popup should open relative to the iconAnchor
+        }),
+      }).addTo(hordesLayer);
+    });
+  }, [hordes, hordesLayer, map]);
 
-      console.log("==horde", horde);
+  const updateHordes = useCallback(() => {
+    const newHordes = hordes.map((horde: any) => {
+      const newCoords = computeDestinationPoint(
+        {
+          latitude: horde.lat,
+          longitude: horde.lng,
+        },
+        200,
+        Math.floor(Math.random() * 360)
+      );
 
-      border.addTo(map);
-      dwellings.addTo(map);
-    }
-  }, [dwellings, border, hordes, map]);
+      horde.lat = newCoords.latitude;
+      horde.lng = newCoords.longitude;
+
+      return horde;
+    });
+
+    setHordes(newHordes);
+  }, [hordes]);
+
+  const borderMouseover = useCallback(
+    (e: L.LayerEvent) => {
+      if ([AidType.WaterFood, AidType.WaterSoldier].includes(markerType!)) {
+        var layer = e.target;
+
+        layer.setStyle(altBorderStyle());
+      }
+    },
+    [markerType]
+  );
 
   const handleMapClick = useCallback(
     (e: L.LeafletMouseEvent) => {
@@ -213,7 +209,7 @@ const App = () => {
       // Check for water-based supply drops
       if (
         [AidType.WaterFood, AidType.WaterSoldier].includes(markerType) &&
-        insideBorder
+        pointInBorder(e.latlng.lng, e.latlng.lat, border)
       ) {
         return;
       }
@@ -245,12 +241,57 @@ const App = () => {
       setSupplyDrop(drop);
 
       setTimeout(() => {
-        setClearMap(true);
         setMarkerType(null);
+        setClearMap(true);
       }, 5000);
     },
-    [map, markerType, supplyDrop, supplyDropCircle, insideBorder]
+    [map, markerType, supplyDrop, supplyDropCircle]
   );
+
+  // Supply Drop event #1
+  useEffect(() => {
+    if (clearMap && supplyDrop && supplyDropCircle) {
+      supplyLayer.clearLayers();
+
+      dwellings.eachLayer((layer: any) => {
+        layer.setStyle(
+          dwellingsStyle(layer.feature.properties.soldiers ? "red" : "grey")
+        );
+      });
+
+      setClearMap(false);
+    }
+  }, [clearMap, map, supplyLayer]);
+
+  // Supply Drop event #2
+  useEffect(() => {
+    const markerData = getMarkerData(markerType!);
+    if (dwellings && supplyDrop && markerData) {
+      dwellings.eachLayer((layer: any) => {
+        const distance = supplyDrop
+          ?.getLatLng()
+          .distanceTo([
+            layer.getBounds()._northEast.lat,
+            layer.getBounds()._northEast.lng,
+          ]);
+
+        if (distance <= markerData?.radius) {
+          layer.setStyle({
+            fillOpacity: 1,
+          });
+          layer.setStyle(dwellingsStyle(markerData.color));
+
+          if (
+            [AidType.AirSoldier, AidType.WaterSoldier].includes(markerType!)
+          ) {
+            layer.feature.properties.soldiers = 2;
+          }
+
+          layer.bringToFront();
+        }
+      });
+    }
+  }, [supplyDrop]);
 
   // Handle clicks
   useEffect(() => {
@@ -264,7 +305,7 @@ const App = () => {
         border.off("mouseover", borderMouseover);
       };
     }
-  }, [map, markerType, supplyDrop, supplyDropCircle, insideBorder]);
+  }, [map, markerType]);
 
   return (
     <div className="flex flex-row">
@@ -272,28 +313,28 @@ const App = () => {
         <h3 className="text-green underline">Sidebar</h3>
         <div className="flex flex-col">
           <button
-            onClick={(e) => {
+            onClick={() => {
               setMarkerType(AidType.AirFood);
             }}
           >
             Air Food
           </button>
           <button
-            onClick={(e) => {
+            onClick={() => {
               setMarkerType(AidType.WaterFood);
             }}
           >
             Water Food
           </button>
           <button
-            onClick={(e) => {
+            onClick={() => {
               setMarkerType(AidType.AirSoldier);
             }}
           >
             Air Solider
           </button>
           <button
-            onClick={(e) => {
+            onClick={() => {
               setMarkerType(AidType.WaterSoldier);
             }}
           >
