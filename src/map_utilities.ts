@@ -98,6 +98,14 @@ export const pointInBorder = (lng: number, lat: number, border: any) => {
   return turf.booleanPointInPolygon(point, poly);
 };
 
+export const polygonInPolygon = (first: any, second: any) => {
+  const one = turf.polygon(first.toGeoJSON().features[0].geometry.coordinates);
+
+  const two = turf.polygon(second.toGeoJSON().features[0].geometry.coordinates);
+
+  return turf.booleanContains(one, two);
+};
+
 export const handleDwellingClick = (e: L.LayerEvent) => {
   var layer = e.target;
   var properties = layer.feature.properties;

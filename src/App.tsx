@@ -14,6 +14,7 @@ import {
   resetHighlight,
   pointInBorder,
   handleDwellingClick,
+  polygonInPolygon,
 } from "./map_utilities";
 import L from "leaflet";
 import { computeDestinationPoint } from "geolib";
@@ -79,20 +80,20 @@ const App = () => {
     // Add hordes and hordes layer
     const hordsLyr = L.layerGroup();
 
-    const bordCenter = bord.getBounds().getCenter();
+    // const bordCenter = bord.getBounds().getCenter();
 
     setHordes([
       {
         id: "60a28b39-8755-494e-9e40-2e2c8fab8ea7",
         size: 100,
-        lat: bordCenter.lat,
-        lng: bordCenter.lng,
+        lat: 45.363800364206654,
+        lng: -73.86541843414308,
       },
       {
         id: "11a28b39-8755-494e-9e40-2e2c8fab8e11",
         size: 200,
-        lat: bordCenter.lat,
-        lng: bordCenter.lng,
+        lat: 45.37314684836281,
+        lng: -73.85553717613222,
       },
     ]);
 
@@ -130,9 +131,26 @@ const App = () => {
   }, [map]);
 
   const renderGame = () => {
+    handleHordeActions();
     renderHordes();
 
     console.log("===GAME LOOP HEARTBEAT");
+  };
+
+  const handleHordeActions = () => {
+    hordes.forEach((horde: any) => {
+      dwellings.eachLayer((layer: any) => {
+        const distance = L.latLng([horde.lat, horde.lng]).distanceTo([
+          layer.getBounds()._northEast.lat,
+          layer.getBounds()._northEast.lng,
+        ]);
+        if (distance <= horde?.size) {
+          console.log("===inside horde:layer", layer);
+          console.log("===inside horde:horde", horde);
+          layer.feature.properties.foodTaken += 1;
+        }
+      });
+    });
   };
 
   const renderHordes = useCallback(() => {
@@ -173,8 +191,10 @@ const App = () => {
         Math.floor(Math.random() * 360)
       );
 
-      horde.lat = newCoords.latitude;
-      horde.lng = newCoords.longitude;
+      if (pointInBorder(newCoords.longitude, newCoords.latitude, border)) {
+        horde.lat = newCoords.latitude;
+        horde.lng = newCoords.longitude;
+      }
 
       return horde;
     });
