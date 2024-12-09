@@ -112,7 +112,7 @@ export const handleDwellingClick = (e: L.LayerEvent) => {
 
   layer
     .bindPopup(
-      `<div><div>ID: ${properties.id}</div><div>Type: ${properties.type}</div><div>Soldiers: ${properties.soldiers}</div><div>Max Occupancy: ${properties.max_occupancy}</div></div>`
+      `<div><div>ID: ${properties.id}</div><div>Type: ${properties.type}</div><div>Soldiers: ${properties.soldiers}</div><div>Food: ${properties.food}</div><div>Occupancy: ${properties.occupancy}</div><div>Max Occupancy: ${properties.max_occupancy}</div></div>`
     )
     .openPopup();
 };

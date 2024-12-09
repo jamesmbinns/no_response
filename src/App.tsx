@@ -80,8 +80,6 @@ const App = () => {
     // Add hordes and hordes layer
     const hordsLyr = L.layerGroup();
 
-    // const bordCenter = bord.getBounds().getCenter();
-
     setHordes([
       {
         id: "60a28b39-8755-494e-9e40-2e2c8fab8ea7",
@@ -103,7 +101,7 @@ const App = () => {
     const aMap = L.map("map", {
       center: [45.3946, -73.9579],
       zoom: 12,
-      layers: [baseMapLayer, bord, dwells, hordsLyr, suplyLyr],
+      layers: [baseMapLayer, bord, hordsLyr, suplyLyr, dwells],
     });
 
     setMap(aMap);
@@ -114,43 +112,96 @@ const App = () => {
 
   // Game loop
   useEffect(() => {
-    const interval = setInterval(() => {
+    // Every hour check
+    const hourInterval = setInterval(() => {
       setGameTime(gameTime + 1000);
 
-      renderGame();
+      checkHordeKills();
+      renderHordes();
     }, 1000);
 
-    const hordesInterval = setInterval(() => {
-      updateHordes();
-    }, 10000);
+    // Every day check
+    const dailyInterval = setInterval(() => {
+      checkDwellingLoss();
+      updateHordeLocation();
+    }, 24000);
 
     return () => {
-      clearInterval(interval);
-      clearInterval(hordesInterval);
+      clearInterval(hourInterval);
+      clearInterval(dailyInterval);
     };
   }, [map]);
 
-  const renderGame = () => {
-    handleHordeActions();
-    renderHordes();
+  const checkDwellingLoss = () => {
+    const newDwellings = dwellings.eachLayer((dwelling: any) => {
+      // Lose one food every day per person
+      if (
+        dwelling.feature.properties.food &&
+        (dwelling.feature.properties.occupancy ||
+          dwelling.feature.properties.soldiers)
+      ) {
+        dwelling.feature.properties.food -=
+          dwelling.feature.properties.occupancy +
+          dwelling.feature.properties.soldiers;
+      }
 
-    console.log("===GAME LOOP HEARTBEAT");
+      // If no food, all occupants and soldiers die
+      if (dwelling.feature.properties.food <= 0) {
+        dwelling.feature.properties.occupancy = 0;
+        dwelling.feature.properties.soldiers = 0;
+      }
+      // If dwelling has occupants
+      if (
+        dwelling.feature.properties.occupancy ||
+        dwelling.feature.properties.soldiers
+      ) {
+        hordes.forEach((horde: any) => {
+          const distance = L.latLng([horde.lat, horde.lng]).distanceTo([
+            dwelling.getBounds()._northEast.lat,
+            dwelling.getBounds()._northEast.lng,
+          ]);
+          // If horde radius encompases a dwelling
+          if (distance <= horde?.size) {
+            // If dwelling has soldiers
+            if (Math.random() > 0.75) {
+              if (dwelling.feature.properties.soldiers) {
+                dwelling.feature.properties.soldiers -= 1;
+              }
+
+              if (dwelling.feature.properties.occupancy) {
+                dwelling.feature.properties.occupancy -= 1;
+              }
+            }
+          }
+        });
+      }
+
+      dwelling.bringToFront();
+    });
+
+    setDwellings(newDwellings);
   };
 
-  const handleHordeActions = () => {
-    hordes.forEach((horde: any) => {
+  const checkHordeKills = () => {
+    const newHordes = hordes.map((horde: any) => {
       dwellings.eachLayer((layer: any) => {
         const distance = L.latLng([horde.lat, horde.lng]).distanceTo([
           layer.getBounds()._northEast.lat,
           layer.getBounds()._northEast.lng,
         ]);
+        // If horde radius encompases a dwelling
         if (distance <= horde?.size) {
-          console.log("===inside horde:layer", layer);
-          console.log("===inside horde:horde", horde);
-          layer.feature.properties.foodTaken += 1;
+          // If dwelling has soldiers
+          if (layer.feature.properties.soldiers && Math.random() > 0.5) {
+            horde.size -= 1;
+          }
         }
       });
+
+      return horde;
     });
+
+    setHordes(newHordes);
   };
 
   const renderHordes = useCallback(() => {
@@ -180,24 +231,28 @@ const App = () => {
     });
   }, [hordes, hordesLayer, map]);
 
-  const updateHordes = useCallback(() => {
-    const newHordes = hordes.map((horde: any) => {
-      const newCoords = computeDestinationPoint(
-        {
-          latitude: horde.lat,
-          longitude: horde.lng,
-        },
-        200,
-        Math.floor(Math.random() * 360)
-      );
+  const updateHordeLocation = useCallback(() => {
+    const newHordes = hordes
+      .map((horde: any) => {
+        console.log("===inside horde:horde", horde);
 
-      if (pointInBorder(newCoords.longitude, newCoords.latitude, border)) {
-        horde.lat = newCoords.latitude;
-        horde.lng = newCoords.longitude;
-      }
+        const newCoords = computeDestinationPoint(
+          {
+            latitude: horde.lat,
+            longitude: horde.lng,
+          },
+          200,
+          Math.floor(Math.random() * 360)
+        );
 
-      return horde;
-    });
+        if (pointInBorder(newCoords.longitude, newCoords.latitude, border)) {
+          horde.lat = newCoords.latitude;
+          horde.lng = newCoords.longitude;
+        }
+
+        return horde;
+      })
+      .filter((horde: any) => horde.size > 0);
 
     setHordes(newHordes);
   }, [hordes]);
@@ -278,27 +333,27 @@ const App = () => {
   useEffect(() => {
     const markerData = getMarkerData(markerType!);
     if (dwellings && supplyDrop && markerData) {
-      dwellings.eachLayer((layer: any) => {
+      dwellings.eachLayer((dwelling: any) => {
         const distance = supplyDrop
           ?.getLatLng()
           .distanceTo([
-            layer.getBounds()._northEast.lat,
-            layer.getBounds()._northEast.lng,
+            dwelling.getBounds()._northEast.lat,
+            dwelling.getBounds()._northEast.lng,
           ]);
 
         if (distance <= markerData?.radius) {
-          layer.setStyle({
+          dwelling.setStyle({
             fillOpacity: 1,
           });
-          layer.setStyle(dwellingsStyle(markerData.color));
+          dwelling.setStyle(dwellingsStyle(markerData.color));
 
           if (
             [AidType.AirSoldier, AidType.WaterSoldier].includes(markerType!)
           ) {
-            layer.feature.properties.soldiers = 2;
+            dwelling.feature.properties.soldiers = 2;
           }
 
-          layer.bringToFront();
+          dwelling.bringToFront();
         }
       });
     }
