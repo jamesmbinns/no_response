@@ -1,3 +1,4 @@
-2. Setup initial survivors with food
-3. Have hordes interact with survivors and soldiers
-4. Add time element/decay to the game (food reduces, surviors reduce without food in the dwelling)
+5. Show horde size on hover
+6. Set recharge for supply drops
+7. Map food drops actually give food to dwellings
+8. Randomize dwelling initialization for occupancy and food

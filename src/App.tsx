@@ -183,7 +183,7 @@ const App = () => {
         });
       }
 
-      dwelling.setStyle(getDwellingColor(dwelling));
+      dwelling.setStyle(dwellingsStyle(getDwellingColor(dwelling)));
     });
 
     setDwellings(newDwellings);
@@ -347,14 +347,24 @@ const App = () => {
             });
             dwelling.setStyle(dwellingsStyle(markerData.color));
 
+            // Add soldiers if soldier drop
             if (
               [AidType.AirSoldier, AidType.WaterSoldier].includes(markerType!)
             ) {
               dwelling.feature.properties.soldiers = 2;
             }
+
+            // Add food if food drop
+            if (
+              [AidType.AirSoldier, AidType.WaterSoldier].includes(markerType!)
+            ) {
+              dwelling.feature.properties.food += 25;
+            }
           }
         })
         .bringToFront();
+
+      setDwellings(dwellings);
     }
   }, [supplyDrop]);
 
