@@ -73,6 +73,16 @@ const App = () => {
 
     dwells.eachLayer((layer: any) => {
       layer.options.fillColor = getDwellingColor(layer);
+
+      // Randomize occupancy
+      layer.feature.properties.occupancy = Math.floor(
+        layer.feature.properties.max_occupancy * Math.random()
+      );
+
+      // Randomize food
+      layer.feature.properties.food = Math.floor(
+        layer.feature.properties.occupancy * 50 * Math.random()
+      );
     });
 
     setDwellings(dwells);
@@ -355,9 +365,7 @@ const App = () => {
             }
 
             // Add food if food drop
-            if (
-              [AidType.AirSoldier, AidType.WaterSoldier].includes(markerType!)
-            ) {
+            if ([AidType.AirFood, AidType.WaterFood].includes(markerType!)) {
               dwelling.feature.properties.food += 25;
             }
           }
