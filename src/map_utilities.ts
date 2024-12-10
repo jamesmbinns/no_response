@@ -83,15 +83,15 @@ export const highlightFeature = (e: L.LayerEvent) => {
 };
 
 export const getDwellingColor = (layer: any) => {
-  let color = "grey";
-
-  if (layer.feature.properties.occupancy > 0) {
-    color = "green";
-  } else if (layer.feature.properties.soldiers > 0) {
-    color = "red";
+  if (layer.feature.properties.soldiers > 0) {
+    return "red";
   }
 
-  return color;
+  if (layer.feature.properties.occupancy > 0) {
+    return "green";
+  }
+
+  return "grey";
 };
 
 export const resetHighlight = (e: L.LayerEvent) => {

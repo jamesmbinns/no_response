@@ -141,7 +141,7 @@ const App = () => {
       checkDwellingLoss();
       updateHordeLocation();
       renderHordes();
-    }, 4000);
+    }, 12000);
 
     return () => {
       clearInterval(hourInterval);
@@ -238,13 +238,19 @@ const App = () => {
       }).addTo(hordesLayer);
 
       // Add a horde marker to the map center
-      L.marker([horde.lat, horde.lng], {
+      const hordeMarker = L.marker([horde.lat, horde.lng], {
         icon: L.icon({
           iconUrl: `/src/assets/zombie.png`,
           iconSize: [30, 51], // size of the icon
-          popupAnchor: [-3, -76], // point from which the popup should open relative to the iconAnchor
+          popupAnchor: [0, -20], // point from which the popup should open relative to the iconAnchor
         }),
-      }).addTo(hordesLayer);
+      });
+
+      hordeMarker.on("mouseover", (e) => {
+        e.target.bindPopup(`<div>Size: ${horde.size}</div>`).openPopup();
+      });
+
+      hordeMarker.addTo(hordesLayer);
     });
   }, [hordes, hordesLayer, map]);
 
