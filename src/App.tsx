@@ -14,7 +14,7 @@ import {
   resetHighlight,
   pointInBorder,
   handleDwellingClick,
-  polygonInPolygon,
+  getDwellingColor,
 } from "./map_utilities";
 import L from "leaflet";
 import { computeDestinationPoint } from "geolib";
@@ -55,6 +55,7 @@ const App = () => {
         });
       },
     });
+
     setBorder(bord);
 
     // Add dwellings layer
@@ -68,6 +69,10 @@ const App = () => {
           click: handleDwellingClick,
         });
       },
+    });
+
+    dwells.eachLayer((layer: any) => {
+      layer.options.fillColor = getDwellingColor(layer);
     });
 
     setDwellings(dwells);
@@ -112,19 +117,21 @@ const App = () => {
 
   // Game loop
   useEffect(() => {
+    renderHordes();
+
     // Every hour check
     const hourInterval = setInterval(() => {
       setGameTime(gameTime + 1000);
 
       checkHordeKills();
-      renderHordes();
     }, 1000);
 
     // Every day check
     const dailyInterval = setInterval(() => {
       checkDwellingLoss();
       updateHordeLocation();
-    }, 24000);
+      renderHordes();
+    }, 4000);
 
     return () => {
       clearInterval(hourInterval);
@@ -162,7 +169,7 @@ const App = () => {
           ]);
           // If horde radius encompases a dwelling
           if (distance <= horde?.size) {
-            // If dwelling has soldiers
+            // 25% chance of soldiers and occupants losing one
             if (Math.random() > 0.75) {
               if (dwelling.feature.properties.soldiers) {
                 dwelling.feature.properties.soldiers -= 1;
@@ -176,7 +183,7 @@ const App = () => {
         });
       }
 
-      dwelling.bringToFront();
+      dwelling.setStyle(getDwellingColor(dwelling));
     });
 
     setDwellings(newDwellings);
@@ -184,15 +191,15 @@ const App = () => {
 
   const checkHordeKills = () => {
     const newHordes = hordes.map((horde: any) => {
-      dwellings.eachLayer((layer: any) => {
+      dwellings.eachLayer((dwelling: any) => {
         const distance = L.latLng([horde.lat, horde.lng]).distanceTo([
-          layer.getBounds()._northEast.lat,
-          layer.getBounds()._northEast.lng,
+          dwelling.getBounds()._northEast.lat,
+          dwelling.getBounds()._northEast.lng,
         ]);
         // If horde radius encompases a dwelling
         if (distance <= horde?.size) {
           // If dwelling has soldiers
-          if (layer.feature.properties.soldiers && Math.random() > 0.5) {
+          if (dwelling.feature.properties.soldiers && Math.random() > 0.5) {
             horde.size -= 1;
           }
         }
@@ -234,8 +241,6 @@ const App = () => {
   const updateHordeLocation = useCallback(() => {
     const newHordes = hordes
       .map((horde: any) => {
-        console.log("===inside horde:horde", horde);
-
         const newCoords = computeDestinationPoint(
           {
             latitude: horde.lat,
@@ -319,12 +324,6 @@ const App = () => {
     if (clearMap) {
       supplyLayer.clearLayers();
 
-      dwellings.eachLayer((layer: any) => {
-        layer.setStyle(
-          dwellingsStyle(layer.feature.properties.soldiers ? "red" : "grey")
-        );
-      });
-
       setClearMap(false);
     }
   }, [clearMap, supplyLayer]);
@@ -333,31 +332,37 @@ const App = () => {
   useEffect(() => {
     const markerData = getMarkerData(markerType!);
     if (dwellings && supplyDrop && markerData) {
-      dwellings.eachLayer((dwelling: any) => {
-        const distance = supplyDrop
-          ?.getLatLng()
-          .distanceTo([
-            dwelling.getBounds()._northEast.lat,
-            dwelling.getBounds()._northEast.lng,
-          ]);
+      dwellings
+        .eachLayer((dwelling: any) => {
+          const distance = supplyDrop
+            ?.getLatLng()
+            .distanceTo([
+              dwelling.getBounds()._northEast.lat,
+              dwelling.getBounds()._northEast.lng,
+            ]);
 
-        if (distance <= markerData?.radius) {
-          dwelling.setStyle({
-            fillOpacity: 1,
-          });
-          dwelling.setStyle(dwellingsStyle(markerData.color));
+          if (distance <= markerData?.radius) {
+            dwelling.setStyle({
+              fillOpacity: 1,
+            });
+            dwelling.setStyle(dwellingsStyle(markerData.color));
 
-          if (
-            [AidType.AirSoldier, AidType.WaterSoldier].includes(markerType!)
-          ) {
-            dwelling.feature.properties.soldiers = 2;
+            if (
+              [AidType.AirSoldier, AidType.WaterSoldier].includes(markerType!)
+            ) {
+              dwelling.feature.properties.soldiers = 2;
+            }
           }
-
-          dwelling.bringToFront();
-        }
-      });
+        })
+        .bringToFront();
     }
   }, [supplyDrop]);
+
+  useEffect(() => {
+    if (dwellings) {
+      dwellings.bringToFront();
+    }
+  }, [hordes, supplyDrop]);
 
   // Handle clicks
   useEffect(() => {

@@ -82,11 +82,24 @@ export const highlightFeature = (e: L.LayerEvent) => {
   layer.bringToFront();
 };
 
+export const getDwellingColor = (layer: any) => {
+  let color = "grey";
+
+  if (layer.feature.properties.occupancy) {
+    color = "green";
+  } else if (layer.feature.properties.soldiers) {
+    color = "red";
+  }
+
+  return color;
+};
+
 export const resetHighlight = (e: L.LayerEvent) => {
   const layer = e.target;
-  layer.setStyle(
-    dwellingsStyle(layer.feature.properties.soldiers ? "red" : "grey")
-  );
+
+  const color = getDwellingColor(layer);
+
+  layer.setStyle(dwellingsStyle(color));
 };
 
 export const pointInBorder = (lng: number, lat: number, border: any) => {
