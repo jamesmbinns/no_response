@@ -51,7 +51,7 @@ export const altBorderStyle = () => {
     weight: 2,
     dashArray: "3",
     opacity: 1,
-    color: "yellow",
+    color: "red",
     fillColor: "yellow",
     fillOpacity: 0.5,
   };
@@ -72,7 +72,7 @@ export const highlightFeature = (e: L.LayerEvent) => {
   var layer = e.target;
 
   layer.setStyle({
-    weight: 7,
+    weight: 2,
     color: "white",
     fillColor: "yellow",
     dashArray: "",

@@ -4,7 +4,7 @@ import "./App.css";
 import "leaflet/dist/leaflet.css";
 import borderJSON from "./assets/border.json";
 import dwellingsJSON from "./assets/dwellings.json";
-import { AidType } from "./map_types";
+import { AidType, Constants } from "./map_types";
 import {
   getMarkerData,
   borderStyle,
@@ -20,7 +20,6 @@ import L from "leaflet";
 import { computeDestinationPoint } from "geolib";
 
 const App = () => {
-  const [gameTime, setGameTime] = useState<number>(0);
   const [map, setMap] = useState<L.Map>();
   const [markerType, setMarkerType] = useState<AidType | null>();
   const [supplyDrop, setSupplyDrop] = useState<L.Marker>();
@@ -30,6 +29,11 @@ const App = () => {
   const [hordesLayer, setHordesLayer] = useState<any>([]);
   const [supplyLayer, setSupplyLayer] = useState<any>([]);
   const [clearMap, setClearMap] = useState<boolean>(false);
+
+  const [airSoldierTimer, setAirSoldierTimer] = useState<number>();
+  const [airFoodTimer, setAirFoodTimer] = useState<number>();
+  const [waterSoldierTimer, setWaterSoldierTimer] = useState<number>();
+  const [waterFoodTimer, setWaterFoodTimer] = useState<number>();
 
   // Game initialization
   useEffect(() => {
@@ -87,7 +91,7 @@ const App = () => {
 
     setDwellings(dwells);
 
-    // Add supply layer
+    // Add empty supply layer
     const suplyLyr = L.layerGroup();
 
     setSupplyLayer(suplyLyr);
@@ -104,7 +108,7 @@ const App = () => {
       },
       {
         id: "11a28b39-8755-494e-9e40-2e2c8fab8e11",
-        size: 200,
+        size: 50,
         lat: 45.37314684836281,
         lng: -73.85553717613222,
       },
@@ -131,23 +135,21 @@ const App = () => {
 
     // Every hour check
     const hourInterval = setInterval(() => {
-      setGameTime(gameTime + 1000);
-
       checkHordeKills();
-    }, 1000);
+    }, Constants.HourlyInterval);
 
-    // Every day check
+    // Every 12 hours check
     const dailyInterval = setInterval(() => {
       checkDwellingLoss();
       updateHordeLocation();
       renderHordes();
-    }, 12000);
+    }, Constants.DailyInterval);
 
     return () => {
       clearInterval(hourInterval);
       clearInterval(dailyInterval);
     };
-  }, [map]);
+  }, [hordes, map]);
 
   const checkDwellingLoss = () => {
     const newDwellings = dwellings.eachLayer((dwelling: any) => {
@@ -167,24 +169,26 @@ const App = () => {
         dwelling.feature.properties.occupancy = 0;
         dwelling.feature.properties.soldiers = 0;
       }
-      // If dwelling has occupants
+      // If dwelling has occupants, check if hordes kill anyone
       if (
         dwelling.feature.properties.occupancy ||
         dwelling.feature.properties.soldiers
       ) {
         hordes.forEach((horde: any) => {
           const distance = L.latLng([horde.lat, horde.lng]).distanceTo([
-            dwelling.getBounds()._northEast.lat,
-            dwelling.getBounds()._northEast.lng,
+            dwelling.getBounds().getCenter().lat,
+            dwelling.getBounds().getCenter().lng,
           ]);
           // If horde radius encompases a dwelling
-          if (distance <= horde?.size) {
-            // 25% chance of soldiers and occupants losing one
+          if (distance <= Math.max(horde?.size, Constants.DefaultHordeSize)) {
+            // 25% chance of 1 soldier and occupant dying inside dwelling
             if (Math.random() > 0.75) {
               if (dwelling.feature.properties.soldiers) {
                 dwelling.feature.properties.soldiers -= 1;
               }
+            }
 
+            if (Math.random() > 0.75) {
               if (dwelling.feature.properties.occupancy) {
                 dwelling.feature.properties.occupancy -= 1;
               }
@@ -193,6 +197,7 @@ const App = () => {
         });
       }
 
+      // Set dwelling style to reflect new dwelling status
       dwelling.setStyle(dwellingsStyle(getDwellingColor(dwelling)));
     });
 
@@ -200,23 +205,27 @@ const App = () => {
   };
 
   const checkHordeKills = () => {
-    const newHordes = hordes.map((horde: any) => {
-      dwellings.eachLayer((dwelling: any) => {
-        const distance = L.latLng([horde.lat, horde.lng]).distanceTo([
-          dwelling.getBounds()._northEast.lat,
-          dwelling.getBounds()._northEast.lng,
-        ]);
-        // If horde radius encompases a dwelling
-        if (distance <= horde?.size) {
-          // If dwelling has soldiers
-          if (dwelling.feature.properties.soldiers && Math.random() > 0.5) {
-            horde.size -= 1;
+    const newHordes = hordes
+      .map((horde: any) => {
+        dwellings.eachLayer((dwelling: any) => {
+          const distance = L.latLng([horde.lat, horde.lng]).distanceTo([
+            dwelling.getBounds().getCenter().lat,
+            dwelling.getBounds().getCenter().lng,
+          ]);
+          // If horde radius encompases a dwelling
+          if (distance <= Math.max(horde?.size, Constants.DefaultHordeSize)) {
+            // If dwelling has soldiers
+            if (dwelling.feature.properties.soldiers && Math.random() > 0.5) {
+              horde.size -= dwelling.feature.properties.soldiers;
+            }
           }
-        }
-      });
+        });
 
-      return horde;
-    });
+        return horde;
+      })
+      .filter((horde: any) => horde.size > 0);
+
+    hordesLayer.clearLayers();
 
     setHordes(newHordes);
   };
@@ -262,10 +271,11 @@ const App = () => {
             latitude: horde.lat,
             longitude: horde.lng,
           },
-          200,
+          Math.max(horde?.size, Constants.DefaultHordeSize),
           Math.floor(Math.random() * 360)
         );
 
+        // If the location is within the border bounds, move the horde there
         if (pointInBorder(newCoords.longitude, newCoords.latitude, border)) {
           horde.lat = newCoords.latitude;
           horde.lng = newCoords.longitude;
@@ -274,6 +284,8 @@ const App = () => {
         return horde;
       })
       .filter((horde: any) => horde.size > 0);
+
+    hordesLayer.clearLayers();
 
     setHordes(newHordes);
   }, [hordes]);
@@ -295,7 +307,7 @@ const App = () => {
 
       if (!markerType) return;
 
-      // Check for water-based supply drops
+      // Ignore map clicks inside the border if the markerType is for a water supply
       if (
         [AidType.WaterFood, AidType.WaterSoldier].includes(markerType) &&
         pointInBorder(e.latlng.lng, e.latlng.lat, border)
@@ -328,11 +340,10 @@ const App = () => {
       setSupplyDrop(drop);
 
       setTimeout(() => {
-        setMarkerType(null);
         setClearMap(true);
-      }, 5000);
+      }, Constants.HourlyInterval * 5);
     },
-    [map, markerType, supplyLayer]
+    [map, markerType]
   );
 
   // Supply Drop event #1
@@ -340,21 +351,88 @@ const App = () => {
     if (clearMap) {
       supplyLayer.clearLayers();
 
+      dwellings.eachLayer((dwelling: any) => {
+        dwelling.setStyle(dwellingsStyle(getDwellingColor(dwelling)));
+      });
+
       setClearMap(false);
     }
-  }, [clearMap, supplyLayer]);
+  }, [clearMap, supplyLayer, dwellings]);
 
   // Supply Drop event #2
   useEffect(() => {
     const markerData = getMarkerData(markerType!);
+
+    // Add soldiers if soldier drop
+    if ([AidType.AirSoldier].includes(markerType!)) {
+      let closeSeconds = 30;
+
+      var interval = setInterval(function () {
+        closeSeconds--;
+
+        setAirSoldierTimer(closeSeconds);
+
+        if (closeSeconds < 0) {
+          setAirSoldierTimer(0);
+          clearInterval(interval);
+        }
+      }, Constants.HourlyInterval);
+    }
+
+    if ([AidType.WaterSoldier].includes(markerType!)) {
+      let closeSeconds = 20;
+
+      var interval = setInterval(function () {
+        closeSeconds--;
+
+        setWaterSoldierTimer(closeSeconds);
+
+        if (closeSeconds < 0) {
+          setWaterSoldierTimer(0);
+          clearInterval(interval);
+        }
+      }, Constants.HourlyInterval);
+    }
+
+    // Add food if food drop
+    if ([AidType.AirFood].includes(markerType!)) {
+      let closeSeconds = 25;
+
+      var interval = setInterval(function () {
+        closeSeconds--;
+
+        setAirFoodTimer(closeSeconds);
+
+        if (closeSeconds < 0) {
+          setAirFoodTimer(0);
+          clearInterval(interval);
+        }
+      }, Constants.HourlyInterval);
+    }
+
+    if ([AidType.WaterFood].includes(markerType!)) {
+      let closeSeconds = 15;
+
+      var interval = setInterval(function () {
+        closeSeconds--;
+
+        setWaterFoodTimer(closeSeconds);
+
+        if (closeSeconds < 0) {
+          setWaterFoodTimer(0);
+          clearInterval(interval);
+        }
+      }, Constants.HourlyInterval);
+    }
+
     if (dwellings && supplyDrop && markerData) {
       dwellings
         .eachLayer((dwelling: any) => {
           const distance = supplyDrop
             ?.getLatLng()
             .distanceTo([
-              dwelling.getBounds()._northEast.lat,
-              dwelling.getBounds()._northEast.lng,
+              dwelling.getBounds().getCenter().lat,
+              dwelling.getBounds().getCenter().lng,
             ]);
 
           if (distance <= markerData?.radius) {
@@ -364,20 +442,27 @@ const App = () => {
             dwelling.setStyle(dwellingsStyle(markerData.color));
 
             // Add soldiers if soldier drop
-            if (
-              [AidType.AirSoldier, AidType.WaterSoldier].includes(markerType!)
-            ) {
-              dwelling.feature.properties.soldiers = 2;
+            if ([AidType.AirSoldier].includes(markerType!)) {
+              dwelling.feature.properties.soldiers += 2;
+            }
+
+            if ([AidType.WaterSoldier].includes(markerType!)) {
+              dwelling.feature.properties.soldiers += 3;
             }
 
             // Add food if food drop
-            if ([AidType.AirFood, AidType.WaterFood].includes(markerType!)) {
+            if ([AidType.AirFood].includes(markerType!)) {
               dwelling.feature.properties.food += 25;
+            }
+
+            if ([AidType.WaterFood].includes(markerType!)) {
+              dwelling.feature.properties.food += 40;
             }
           }
         })
         .bringToFront();
 
+      setMarkerType(null);
       setDwellings(dwellings);
     }
   }, [supplyDrop]);
@@ -400,40 +485,49 @@ const App = () => {
         border.off("mouseover", borderMouseover);
       };
     }
-  }, [map, markerType]);
+  }, [map, markerType, supplyLayer]);
 
   return (
     <div className="flex flex-row">
       <div className="sidebar">
-        <h3 className="text-green underline">Sidebar</h3>
+        <h3 className="underline">Sidebar</h3>
         <div className="flex flex-col">
           <button
             onClick={() => {
               setMarkerType(AidType.AirFood);
             }}
+            className="text-center disabled:text-slate-500"
+            disabled={!!airFoodTimer}
           >
-            Air Food
+            Air Food {airFoodTimer != 0 && <span>{airFoodTimer}</span>}
           </button>
           <button
             onClick={() => {
               setMarkerType(AidType.WaterFood);
             }}
+            className="text-center disabled:text-slate-500"
+            disabled={!!waterFoodTimer}
           >
-            Water Food
+            Water Food {waterFoodTimer != 0 && <span>{waterFoodTimer}</span>}
           </button>
           <button
             onClick={() => {
               setMarkerType(AidType.AirSoldier);
             }}
+            className="text-center disabled:text-slate-500"
+            disabled={!!airSoldierTimer}
           >
-            Air Solider
+            Air Soldier {airSoldierTimer != 0 && <span>{airSoldierTimer}</span>}
           </button>
           <button
             onClick={() => {
               setMarkerType(AidType.WaterSoldier);
             }}
+            className="text-center disabled:text-slate-500"
+            disabled={!!waterSoldierTimer}
           >
-            Water Soldier
+            Water Soldier{" "}
+            {waterSoldierTimer != 0 && <span>{waterSoldierTimer}</span>}
           </button>
         </div>
       </div>
