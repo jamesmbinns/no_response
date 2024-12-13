@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState } from "react";
 import { Feature, GeoJsonObject } from "geojson";
 import "./App.css";
 import "leaflet/dist/leaflet.css";
@@ -8,16 +8,21 @@ import { AidType, Constants } from "./map_types";
 import {
   getMarkerData,
   borderStyle,
-  altBorderStyle,
   dwellingsStyle,
   highlightFeature,
   resetHighlight,
-  pointInBorder,
   handleDwellingClick,
   getDwellingColor,
+  setCloseInterval,
 } from "./map_utilities";
 import L from "leaflet";
-import { computeDestinationPoint } from "geolib";
+
+import { useRenderHordes } from "./hordes/useRenderHordes";
+import { useUpdateHordeLocation } from "./hordes/useUpdateHordeLocation";
+import { useBorderMouseover } from "./map/useBorderMouseover";
+import { useHandleMapClick } from "./map/useHandleMapClick";
+import { useCheckDwellingLoss } from "./dwellings/useCheckDwellingLoss";
+import { useCheckHordeKills } from "./hordes/useCheckHordeKills";
 
 const App = () => {
   const [map, setMap] = useState<L.Map>();
@@ -34,6 +39,31 @@ const App = () => {
   const [airFoodTimer, setAirFoodTimer] = useState<number>();
   const [waterSoldierTimer, setWaterSoldierTimer] = useState<number>();
   const [waterFoodTimer, setWaterFoodTimer] = useState<number>();
+
+  const renderHordes = useRenderHordes(hordes, hordesLayer, map);
+  const borderMouseover = useBorderMouseover(markerType);
+  const updateHordeLocation = useUpdateHordeLocation(
+    hordes,
+    border,
+    hordesLayer,
+    setHordes
+  );
+  const handleMapClick = useHandleMapClick(
+    markerType,
+    border,
+    supplyLayer,
+    map,
+    setSupplyDrop,
+    setClearMap
+  );
+
+  const checkDwellingLoss = useCheckDwellingLoss(
+    hordes,
+    dwellings,
+    setDwellings
+  );
+
+  const checkHordeKills = useCheckHordeKills(hordes, dwellings, setHordes);
 
   // Game initialization
   useEffect(() => {
@@ -131,8 +161,6 @@ const App = () => {
 
   // Game loop
   useEffect(() => {
-    renderHordes();
-
     // Every hour check
     const hourInterval = setInterval(() => {
       checkHordeKills();
@@ -140,211 +168,16 @@ const App = () => {
 
     // Every 12 hours check
     const dailyInterval = setInterval(() => {
+      console.log("===dailyInterval");
       checkDwellingLoss();
       updateHordeLocation();
-      renderHordes();
     }, Constants.DailyInterval);
 
     return () => {
       clearInterval(hourInterval);
       clearInterval(dailyInterval);
     };
-  }, [hordes, map]);
-
-  const checkDwellingLoss = () => {
-    const newDwellings = dwellings.eachLayer((dwelling: any) => {
-      // Lose one food every day per person
-      if (
-        dwelling.feature.properties.food &&
-        (dwelling.feature.properties.occupancy ||
-          dwelling.feature.properties.soldiers)
-      ) {
-        dwelling.feature.properties.food -=
-          dwelling.feature.properties.occupancy +
-          dwelling.feature.properties.soldiers;
-      }
-
-      // If no food, all occupants and soldiers die
-      if (dwelling.feature.properties.food <= 0) {
-        dwelling.feature.properties.occupancy = 0;
-        dwelling.feature.properties.soldiers = 0;
-      }
-      // If dwelling has occupants, check if hordes kill anyone
-      if (
-        dwelling.feature.properties.occupancy ||
-        dwelling.feature.properties.soldiers
-      ) {
-        hordes.forEach((horde: any) => {
-          const distance = L.latLng([horde.lat, horde.lng]).distanceTo([
-            dwelling.getBounds().getCenter().lat,
-            dwelling.getBounds().getCenter().lng,
-          ]);
-          // If horde radius encompases a dwelling
-          if (distance <= Math.max(horde?.size, Constants.DefaultHordeSize)) {
-            // 25% chance of 1 soldier and occupant dying inside dwelling
-            if (Math.random() > 0.75) {
-              if (dwelling.feature.properties.soldiers) {
-                dwelling.feature.properties.soldiers -= 1;
-              }
-            }
-
-            if (Math.random() > 0.75) {
-              if (dwelling.feature.properties.occupancy) {
-                dwelling.feature.properties.occupancy -= 1;
-              }
-            }
-          }
-        });
-      }
-
-      // Set dwelling style to reflect new dwelling status
-      dwelling.setStyle(dwellingsStyle(getDwellingColor(dwelling)));
-    });
-
-    setDwellings(newDwellings);
-  };
-
-  const checkHordeKills = () => {
-    const newHordes = hordes
-      .map((horde: any) => {
-        dwellings.eachLayer((dwelling: any) => {
-          const distance = L.latLng([horde.lat, horde.lng]).distanceTo([
-            dwelling.getBounds().getCenter().lat,
-            dwelling.getBounds().getCenter().lng,
-          ]);
-          // If horde radius encompases a dwelling
-          if (distance <= Math.max(horde?.size, Constants.DefaultHordeSize)) {
-            // If dwelling has soldiers
-            if (dwelling.feature.properties.soldiers && Math.random() > 0.5) {
-              horde.size -= dwelling.feature.properties.soldiers;
-            }
-          }
-        });
-
-        return horde;
-      })
-      .filter((horde: any) => horde.size > 0);
-
-    hordesLayer.clearLayers();
-
-    setHordes(newHordes);
-  };
-
-  const renderHordes = useCallback(() => {
-    if (!hordes.length) return;
-
-    hordesLayer.clearLayers();
-
-    hordes.forEach((horde: any) => {
-      L.circle([horde.lat, horde.lng], {
-        color: "yellow",
-        fillColor: "yellow",
-        fillOpacity: 0.2,
-        radius: horde.size,
-        weight: 3,
-        dashArray: "3",
-        className: "horde",
-      }).addTo(hordesLayer);
-
-      // Add a horde marker to the map center
-      const hordeMarker = L.marker([horde.lat, horde.lng], {
-        icon: L.icon({
-          iconUrl: `/src/assets/zombie.png`,
-          iconSize: [30, 51], // size of the icon
-          popupAnchor: [0, -20], // point from which the popup should open relative to the iconAnchor
-        }),
-      });
-
-      hordeMarker.on("mouseover", (e) => {
-        e.target.bindPopup(`<div>Size: ${horde.size}</div>`).openPopup();
-      });
-
-      hordeMarker.addTo(hordesLayer);
-    });
-  }, [hordes, hordesLayer, map]);
-
-  const updateHordeLocation = useCallback(() => {
-    const newHordes = hordes
-      .map((horde: any) => {
-        const newCoords = computeDestinationPoint(
-          {
-            latitude: horde.lat,
-            longitude: horde.lng,
-          },
-          Math.max(horde?.size, Constants.DefaultHordeSize),
-          Math.floor(Math.random() * 360)
-        );
-
-        // If the location is within the border bounds, move the horde there
-        if (pointInBorder(newCoords.longitude, newCoords.latitude, border)) {
-          horde.lat = newCoords.latitude;
-          horde.lng = newCoords.longitude;
-        }
-
-        return horde;
-      })
-      .filter((horde: any) => horde.size > 0);
-
-    hordesLayer.clearLayers();
-
-    setHordes(newHordes);
-  }, [hordes]);
-
-  const borderMouseover = useCallback(
-    (e: L.LayerEvent) => {
-      if ([AidType.WaterFood, AidType.WaterSoldier].includes(markerType!)) {
-        var layer = e.target;
-
-        layer.setStyle(altBorderStyle());
-      }
-    },
-    [markerType]
-  );
-
-  const handleMapClick = useCallback(
-    (e: L.LeafletMouseEvent) => {
-      const markerData = getMarkerData(markerType!);
-
-      if (!markerType) return;
-
-      // Ignore map clicks inside the border if the markerType is for a water supply
-      if (
-        [AidType.WaterFood, AidType.WaterSoldier].includes(markerType) &&
-        pointInBorder(e.latlng.lng, e.latlng.lat, border)
-      ) {
-        return;
-      }
-
-      L.circle([e.latlng.lat, e.latlng.lng], {
-        color: markerData.color,
-        fillColor: markerData.color,
-        fillOpacity: 0.2,
-        radius: markerData.radius!,
-        weight: 3,
-        dashArray: "3",
-        className: "marker",
-      }).addTo(supplyLayer);
-
-      var icon = L.icon({
-        iconUrl: `/src/assets/${markerType}.png`,
-
-        iconSize: [30, 51], // size of the icon
-        popupAnchor: [-3, -76], // point from which the popup should open relative to the iconAnchor
-      });
-
-      // Add a marker to the clicked area
-      let drop = L.marker([e.latlng.lat, e.latlng.lng], {
-        icon,
-      }).addTo(supplyLayer);
-
-      setSupplyDrop(drop);
-
-      setTimeout(() => {
-        setClearMap(true);
-      }, Constants.HourlyInterval * 5);
-    },
-    [map, markerType]
-  );
+  }, [map]);
 
   // Supply Drop event #1
   useEffect(() => {
@@ -357,7 +190,7 @@ const App = () => {
 
       setClearMap(false);
     }
-  }, [clearMap, supplyLayer, dwellings]);
+  }, [clearMap, supplyLayer]);
 
   // Supply Drop event #2
   useEffect(() => {
@@ -365,64 +198,20 @@ const App = () => {
 
     // Add soldiers if soldier drop
     if ([AidType.AirSoldier].includes(markerType!)) {
-      let closeSeconds = 30;
-
-      var interval = setInterval(function () {
-        closeSeconds--;
-
-        setAirSoldierTimer(closeSeconds);
-
-        if (closeSeconds < 0) {
-          setAirSoldierTimer(0);
-          clearInterval(interval);
-        }
-      }, Constants.HourlyInterval);
+      setCloseInterval(30, setAirSoldierTimer);
     }
 
     if ([AidType.WaterSoldier].includes(markerType!)) {
-      let closeSeconds = 20;
-
-      var interval = setInterval(function () {
-        closeSeconds--;
-
-        setWaterSoldierTimer(closeSeconds);
-
-        if (closeSeconds < 0) {
-          setWaterSoldierTimer(0);
-          clearInterval(interval);
-        }
-      }, Constants.HourlyInterval);
+      setCloseInterval(20, setWaterSoldierTimer);
     }
 
     // Add food if food drop
     if ([AidType.AirFood].includes(markerType!)) {
-      let closeSeconds = 25;
-
-      var interval = setInterval(function () {
-        closeSeconds--;
-
-        setAirFoodTimer(closeSeconds);
-
-        if (closeSeconds < 0) {
-          setAirFoodTimer(0);
-          clearInterval(interval);
-        }
-      }, Constants.HourlyInterval);
+      setCloseInterval(25, setAirFoodTimer);
     }
 
     if ([AidType.WaterFood].includes(markerType!)) {
-      let closeSeconds = 15;
-
-      var interval = setInterval(function () {
-        closeSeconds--;
-
-        setWaterFoodTimer(closeSeconds);
-
-        if (closeSeconds < 0) {
-          setWaterFoodTimer(0);
-          clearInterval(interval);
-        }
-      }, Constants.HourlyInterval);
+      setCloseInterval(15, setWaterFoodTimer);
     }
 
     if (dwellings && supplyDrop && markerData) {
@@ -467,11 +256,21 @@ const App = () => {
     }
   }, [supplyDrop]);
 
+  // Bring dwellings to front
   useEffect(() => {
     if (dwellings) {
       dwellings.bringToFront();
     }
   }, [hordes, supplyDrop]);
+
+  // Render hordes when hordes changes
+  useEffect(() => {
+    if (!hordes) {
+      console.log("===YOU WIN THE GAME!");
+    } else {
+      renderHordes();
+    }
+  }, [hordes]);
 
   // Handle clicks
   useEffect(() => {

@@ -1,4 +1,4 @@
-import { AidType } from "./map_types";
+import { AidType, Constants } from "./map_types";
 import L from "leaflet";
 import * as turf from "@turf/turf";
 
@@ -128,4 +128,20 @@ export const handleDwellingClick = (e: L.LayerEvent) => {
       `<div><div>ID: ${properties.id}</div><div>Type: ${properties.type}</div><div>Soldiers: ${properties.soldiers}</div><div>Food: ${properties.food}</div><div>Occupancy: ${properties.occupancy}</div><div>Max Occupancy: ${properties.max_occupancy}</div></div>`
     )
     .openPopup();
+};
+
+export const setCloseInterval = (
+  closeSeconds: number,
+  setTimer: (time: number) => void
+) => {
+  var interval = setInterval(function () {
+    closeSeconds--;
+
+    setTimer(closeSeconds);
+
+    if (closeSeconds < 0) {
+      setTimer(0);
+      clearInterval(interval);
+    }
+  }, Constants.HourlyInterval);
 };

@@ -7,6 +7,6 @@ export enum AidType {
 
 export enum Constants {
   HourlyInterval = 1000,
-  DailyInterval = HourlyInterval * 12,
+  DailyInterval = 12000,
   DefaultHordeSize = 50,
 }
