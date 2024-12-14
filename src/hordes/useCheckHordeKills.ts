@@ -1,5 +1,5 @@
 import { useCallback } from "react";
-import { Constants } from "../map_types";
+import { Constants } from "../types";
 
 import L from "leaflet";
 
@@ -17,9 +17,16 @@ export const useCheckHordeKills = (
             dwelling.getBounds().getCenter().lng,
           ]);
           // If horde radius encompases a dwelling
-          if (distance <= Math.max(horde?.size, Constants.DefaultHordeSize)) {
+          if (
+            distance <=
+            Math.max(horde?.size, Constants.DefaultHordeSize) +
+              Constants.SoldierKillRadius
+          ) {
             // If dwelling has soldiers
-            if (dwelling.feature.properties.soldiers && Math.random() > 0.5) {
+            if (
+              dwelling.feature.properties.soldiers &&
+              Math.random() < Constants.SoldierKillRisk
+            ) {
               horde.size -= dwelling.feature.properties.soldiers;
             }
           }
@@ -27,7 +34,7 @@ export const useCheckHordeKills = (
 
         return horde;
       })
-      .filter((horde: any) => horde.size > 0);
+      .filter((horde: any) => horde.size >= 0);
 
     if (hordes != newHordes) {
       setHordes(newHordes);

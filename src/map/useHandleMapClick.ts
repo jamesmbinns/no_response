@@ -1,7 +1,7 @@
 import { useCallback } from "react";
 
-import { AidType, Constants } from "../map_types";
-import { getMarkerData, pointInBorder } from "../map_utilities";
+import { AidType, Constants } from "../types";
+import { getMarkerData, pointInBorder } from "../utilities";
 import L from "leaflet";
 
 export const useHandleMapClick = (

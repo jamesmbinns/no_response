@@ -1,7 +1,12 @@
 import { useCallback } from "react";
 import L from "leaflet";
 
-export const useRenderHordes = (hordes: any, hordesLayer: any, map: any) => {
+export const useRenderHordes = (
+  hordes: any,
+  hordesLayer: any,
+  map: any,
+  setFrontDwellings: (frontDwellings: boolean) => void
+) => {
   return useCallback(() => {
     if (!hordes.length) return;
 
@@ -13,7 +18,7 @@ export const useRenderHordes = (hordes: any, hordesLayer: any, map: any) => {
         fillColor: "yellow",
         fillOpacity: 0.2,
         radius: horde.size,
-        weight: 3,
+        weight: 1,
         dashArray: "3",
         className: "horde",
       }).addTo(hordesLayer);
@@ -33,5 +38,6 @@ export const useRenderHordes = (hordes: any, hordesLayer: any, map: any) => {
 
       hordeMarker.addTo(hordesLayer);
     });
+    setFrontDwellings(true);
   }, [hordes, hordesLayer, map]);
 };

@@ -1,4 +1,4 @@
-import { AidType, Constants } from "./map_types";
+import { AidType, Constants } from "./types";
 import L from "leaflet";
 import * as turf from "@turf/turf";
 
@@ -7,25 +7,25 @@ export const getMarkerData = (markerType: AidType) => {
     case AidType.AirFood:
       return {
         color: "blue",
-        radius: 60,
+        radius: 45,
       };
 
     case AidType.WaterFood:
       return {
         color: "blue",
-        radius: 150,
+        radius: 100,
       };
 
     case AidType.AirSoldier:
       return {
         color: "red",
-        radius: 50,
+        radius: 30,
       };
 
     case AidType.WaterSoldier:
       return {
         color: "red",
-        radius: 100,
+        radius: 75,
       };
 
     default:
@@ -57,14 +57,14 @@ export const altBorderStyle = () => {
   };
 };
 
-export const dwellingsStyle = (color: string) => {
+export const dwellingsStyle = (styleObj: any) => {
   return {
-    fillColor: color,
-    weight: 1,
+    fillColor: styleObj.fill,
+    weight: styleObj.weight || 1,
     opacity: 1,
-    color: "white",
+    color: styleObj.color,
     dashArray: "3",
-    fillOpacity: 0.4,
+    fillOpacity: 0.7,
   };
 };
 
@@ -72,7 +72,7 @@ export const highlightFeature = (e: L.LayerEvent) => {
   var layer = e.target;
 
   layer.setStyle({
-    weight: 2,
+    weight: 1,
     color: "white",
     fillColor: "yellow",
     dashArray: "",
@@ -82,24 +82,51 @@ export const highlightFeature = (e: L.LayerEvent) => {
   layer.bringToFront();
 };
 
-export const getDwellingColor = (layer: any) => {
-  if (layer.feature.properties.soldiers > 0) {
-    return "red";
+export const getDwellingColor = (dwelling: any) => {
+  const humansInDwelling =
+    dwelling.feature.properties.soldiers +
+    dwelling.feature.properties.occupancy;
+
+  const foodDaysLeft = dwelling.feature.properties.food / humansInDwelling;
+
+  const color = dwelling.feature.properties.soldiers ? "red" : "grey";
+  const weight = dwelling.feature.properties.soldiers ? 3 : 1;
+
+  if (humansInDwelling <= 0) {
+    return {
+      fill: "grey",
+      color: color,
+      weight: weight,
+    };
   }
 
-  if (layer.feature.properties.occupancy > 0) {
-    return "green";
+  if (foodDaysLeft > 10) {
+    return {
+      fill: "green",
+      color: color,
+      weight: weight,
+    };
   }
 
-  return "grey";
+  if (foodDaysLeft > 5) {
+    return {
+      fill: "yellow",
+      color: color,
+      weight: weight,
+    };
+  }
+
+  return {
+    fill: "red",
+    color: color,
+    weight: weight,
+  };
 };
 
 export const resetHighlight = (e: L.LayerEvent) => {
   const layer = e.target;
 
-  const color = getDwellingColor(layer);
-
-  layer.setStyle(dwellingsStyle(color));
+  layer.setStyle(dwellingsStyle(getDwellingColor(layer)));
 };
 
 export const pointInBorder = (lng: number, lat: number, border: any) => {
@@ -125,7 +152,7 @@ export const handleDwellingClick = (e: L.LayerEvent) => {
 
   layer
     .bindPopup(
-      `<div><div>ID: ${properties.id}</div><div>Type: ${properties.type}</div><div>Soldiers: ${properties.soldiers}</div><div>Food: ${properties.food}</div><div>Occupancy: ${properties.occupancy}</div><div>Max Occupancy: ${properties.max_occupancy}</div></div>`
+      `<div><div>Type: ${properties.type}</div><div>Food: ${properties.food}</div><div>Civilians: ${properties.occupancy}</div><div>Soldiers: ${properties.soldiers}</div></div>`
     )
     .openPopup();
 };

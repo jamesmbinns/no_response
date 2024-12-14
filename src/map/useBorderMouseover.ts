@@ -1,6 +1,6 @@
 import { useCallback } from "react";
-import { AidType } from "../map_types";
-import { altBorderStyle } from "../map_utilities";
+import { AidType } from "../types";
+import { altBorderStyle } from "../utilities";
 
 import L from "leaflet";
 

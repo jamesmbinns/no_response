@@ -1,7 +1,7 @@
 import { useCallback } from "react";
 import { computeDestinationPoint } from "geolib";
-import { Constants } from "../map_types";
-import { pointInBorder } from "../map_utilities";
+import { Constants } from "../types";
+import { pointInBorder } from "../utilities";
 
 export const useUpdateHordeLocation = (
   hordes: any,
@@ -29,7 +29,7 @@ export const useUpdateHordeLocation = (
 
         return horde;
       })
-      .filter((horde: any) => horde.size > 0);
+      .filter((horde: any) => horde.size >= 0);
 
     hordesLayer.clearLayers();
 
