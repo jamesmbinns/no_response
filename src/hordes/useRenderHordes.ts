@@ -26,8 +26,8 @@ export const useRenderHordes = (
       // Add a horde marker to the map center
       const hordeMarker = L.marker([horde.lat, horde.lng], {
         icon: L.icon({
-          iconUrl: `/src/assets/zombie.png`,
-          iconSize: [30, 51], // size of the icon
+          iconUrl: `/src/assets/zombie.svg`,
+          iconSize: [51, 51], // size of the icon
           popupAnchor: [0, -20], // point from which the popup should open relative to the iconAnchor
         }),
       });

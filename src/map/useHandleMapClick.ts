@@ -37,7 +37,7 @@ export const useHandleMapClick = (
       }).addTo(supplyLayer);
 
       var icon = L.icon({
-        iconUrl: `/src/assets/${markerType}.png`,
+        iconUrl: `/src/assets/${markerType}.svg`,
 
         iconSize: [30, 51], // size of the icon
         popupAnchor: [-3, -76], // point from which the popup should open relative to the iconAnchor
