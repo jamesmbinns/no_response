@@ -6,26 +6,26 @@ export const getMarkerData = (markerType: AidType) => {
   switch (markerType) {
     case AidType.AirFood:
       return {
-        color: "blue",
-        radius: 45,
+        color: "white",
+        radius: Constants.AirFoodRadius,
       };
 
     case AidType.WaterFood:
       return {
-        color: "blue",
-        radius: 100,
+        color: "white",
+        radius: Constants.WaterFoodRadius,
       };
 
     case AidType.AirSoldier:
       return {
-        color: "red",
-        radius: 30,
+        color: "white",
+        radius: Constants.AirSoldierRadius,
       };
 
     case AidType.WaterSoldier:
       return {
-        color: "red",
-        radius: 75,
+        color: "white",
+        radius: Constants.WaterSoldierRadius,
       };
 
     default:
@@ -89,12 +89,12 @@ export const getDwellingColor = (dwelling: any) => {
 
   const foodDaysLeft = dwelling.feature.properties.food / humansInDwelling;
 
-  const color = dwelling.feature.properties.soldiers ? "red" : "grey";
+  const color = dwelling.feature.properties.soldiers ? "red" : "black";
   const weight = dwelling.feature.properties.soldiers ? 3 : 1;
 
   if (humansInDwelling <= 0) {
     return {
-      fill: "grey",
+      fill: "black",
       color: color,
       weight: weight,
     };

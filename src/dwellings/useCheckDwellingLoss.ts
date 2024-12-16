@@ -73,6 +73,21 @@ export const useCheckDwellingLoss = (
             className: "marker",
           }
         ).addTo(dwellingsLayer);
+
+        // Add a soldier marker to the dwelling center
+        L.marker(
+          [
+            dwelling.getBounds().getCenter().lat,
+            dwelling.getBounds().getCenter().lng,
+          ],
+          {
+            icon: L.icon({
+              iconUrl: `/src/assets/air_soldier.svg`,
+              iconSize: [31, 31], // size of the icon
+              popupAnchor: [0, 0], // point from which the popup should open relative to the iconAnchor
+            }),
+          }
+        ).addTo(dwellingsLayer);
       }
 
       // Set dwelling style to reflect new dwelling status

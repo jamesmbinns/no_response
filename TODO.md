@@ -1,3 +1,5 @@
+1. Soldiers icon on house instead of red outline
+   1b. Sidebar "status update" for all game events, ex. "10 people eaten today", ""
 2. Figure out a good level for game play, create start and end game
 3. Restyle and add supplementary UI (start screen, game over, etc)
 4. Deploy

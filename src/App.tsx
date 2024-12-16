@@ -101,8 +101,8 @@ const App = () => {
     // Add dwellings layer
     const dwells: L.GeoJSON = L.geoJson(dwellingsJSON as GeoJsonObject, {
       style: dwellingsStyle({
-        fill: "grey",
-        color: "grey",
+        fill: "black",
+        color: "black",
       }),
       bubblingMouseEvents: false,
       onEachFeature: (_feature: Feature, layer: L.Layer) => {
@@ -319,6 +319,21 @@ const App = () => {
               radius: 50,
               weight: 1,
               className: "marker",
+            }
+          ).addTo(dwellingsLayer);
+
+          // Add a soldier marker to the dwelling center
+          L.marker(
+            [
+              dwelling.getBounds().getCenter().lat,
+              dwelling.getBounds().getCenter().lng,
+            ],
+            {
+              icon: L.icon({
+                iconUrl: `/src/assets/air_soldier.svg`,
+                iconSize: [31, 31], // size of the icon
+                popupAnchor: [0, 0], // point from which the popup should open relative to the iconAnchor
+              }),
             }
           ).addTo(dwellingsLayer);
         }
