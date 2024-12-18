@@ -6,6 +6,10 @@
 
 .sidebar {
   width: 25%;
+  min-width: 325px;
   color: white;
-  padding: 16px;
+}
+
+.scroll-status {
+  height: 300px;
 }

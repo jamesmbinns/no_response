@@ -6,9 +6,14 @@ import L from "leaflet";
 export const useCheckHordeKills = (
   hordes: any,
   dwellings: any,
-  setHordes: (hordes: any) => void
+  setHordes: (hordes: any) => void,
+  setHordesDestroyed: (count: any) => void,
+  setZombiesDestroyed: (count: any) => void
 ) => {
   return useCallback(() => {
+    let hordesDestroyed = 0;
+    let zombiesDestroyed = 0;
+
     const newHordes = hordes
       .map((horde: any) => {
         dwellings.eachLayer((dwelling: any) => {
@@ -28,9 +33,14 @@ export const useCheckHordeKills = (
               Math.random() < Constants.SoldierKillRisk
             ) {
               horde.size -= dwelling.feature.properties.soldiers;
+              zombiesDestroyed += dwelling.feature.properties.soldiers;
             }
           }
         });
+
+        if (horde.size <= 0) {
+          hordesDestroyed += 1;
+        }
 
         return horde;
       })
@@ -38,6 +48,8 @@ export const useCheckHordeKills = (
 
     if (hordes != newHordes) {
       setHordes(newHordes);
+      setZombiesDestroyed((prevCount: number) => prevCount + zombiesDestroyed);
+      setHordesDestroyed((prevCount: number) => prevCount + hordesDestroyed);
     }
   }, [hordes, dwellings]);
 };

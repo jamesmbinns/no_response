@@ -23,6 +23,7 @@ import { useBorderMouseover } from "./map/useBorderMouseover";
 import { useHandleMapClick } from "./map/useHandleMapClick";
 import { useCheckDwellingLoss } from "./dwellings/useCheckDwellingLoss";
 import { useCheckHordeKills } from "./hordes/useCheckHordeKills";
+import { useUpdateEvents } from "./game/useUpdateEvents";
 
 const App = () => {
   const [map, setMap] = useState<L.Map>();
@@ -36,11 +37,16 @@ const App = () => {
   const [dwellingsLayer, setDwellingsLayer] = useState<any>([]);
   const [clearMap, setClearMap] = useState<boolean>(false);
   const [frontDwellings, setFrontDwellings] = useState<boolean>(false);
+  const [gameEvents, setGameEvents] = useState<Array<Array<string>>>([]);
+  const [hordesDestroyed, setHordesDestroyed] = useState<number>(0);
+  const [zombiesDestroyed, setZombiesDestroyed] = useState<number>(0);
 
   const [airSoldierTimer, setAirSoldierTimer] = useState<number>();
   const [airFoodTimer, setAirFoodTimer] = useState<number>();
   const [waterSoldierTimer, setWaterSoldierTimer] = useState<number>();
   const [waterFoodTimer, setWaterFoodTimer] = useState<number>();
+
+  const updateEvents = useUpdateEvents(gameEvents, setGameEvents);
 
   const renderHordes = useRenderHordes(
     hordes,
@@ -67,9 +73,16 @@ const App = () => {
     hordes,
     dwellings,
     setDwellings,
-    dwellingsLayer
+    dwellingsLayer,
+    updateEvents
   );
-  const checkHordeKills = useCheckHordeKills(hordes, dwellings, setHordes);
+  const checkHordeKills = useCheckHordeKills(
+    hordes,
+    dwellings,
+    setHordes,
+    setHordesDestroyed,
+    setZombiesDestroyed
+  );
 
   // Game initialization
   useEffect(() => {
@@ -210,6 +223,7 @@ const App = () => {
     // Every 12 hours check
     const dailyInterval = setInterval(() => {
       checkDwellingLoss();
+
       updateHordeLocation();
     }, Constants.DailyInterval);
 
@@ -217,7 +231,7 @@ const App = () => {
       clearInterval(hourInterval);
       clearInterval(dailyInterval);
     };
-  }, [map]);
+  }, [map, gameEvents]);
 
   // Supply Drop event #1
   useEffect(() => {
@@ -353,7 +367,7 @@ const App = () => {
 
   // Render hordes when hordes changes
   useEffect(() => {
-    if (!hordes) {
+    if (!hordes.length) {
       console.log("===YOU WIN THE GAME!");
     } else {
       renderHordes();
@@ -377,13 +391,39 @@ const App = () => {
   return (
     <div className="flex flex-row">
       <div className="sidebar">
-        <h3 className="underline">Supply Drops</h3>
-        <div className="flex flex-col">
+        <div className="bg-zinc-900 flex flex-col p-4">
+          <h3 className="mb-1 underline">Daily Reports</h3>
+          <div className="scroll-status overflow-y-scroll	">
+            {[...gameEvents].map((events: Array<string>, i: number) => (
+              <div key={i} className="mb-3">
+                <h3 className="mb-1">Day {i + 1}</h3>
+                {events.map((gameEvent: string, j: number) => (
+                  <p className="mb-1" key={j}>
+                    {gameEvent}
+                  </p>
+                ))}
+              </div>
+            ))}
+          </div>
+        </div>
+        <div className="flex flex-col p-4">
+          <h3 className="mb-2 underline">Hostile Engagement</h3>
+          <p className="mt-1">
+            <span className="text-red-500 font-bold">{zombiesDestroyed}</span>{" "}
+            zombies destroyed
+          </p>
+          <p className="mt-1">
+            <span className="text-red-500 font-bold">{hordesDestroyed}</span>{" "}
+            hordes destroyed
+          </p>
+        </div>
+        <div className="flex flex-col p-4">
+          <h3 className="underline">Supply Drops</h3>
           <button
             onClick={() => {
               setMarkerType(AidType.AirFood);
             }}
-            className="text-left mt-2 disabled:text-slate-500"
+            className="text-left mt-2 disabled:text-slate-500 hover:bg-red-700"
             disabled={!!airFoodTimer}
           >
             Air Food {airFoodTimer != 0 && <span>{airFoodTimer}</span>}
@@ -392,7 +432,7 @@ const App = () => {
             onClick={() => {
               setMarkerType(AidType.WaterFood);
             }}
-            className="text-left mt-2 disabled:text-slate-500"
+            className="text-left mt-2 disabled:text-slate-500 hover:bg-red-700"
             disabled={!!waterFoodTimer}
           >
             Water Food {waterFoodTimer != 0 && <span>{waterFoodTimer}</span>}
@@ -401,7 +441,7 @@ const App = () => {
             onClick={() => {
               setMarkerType(AidType.AirSoldier);
             }}
-            className="text-left mt-2 disabled:text-slate-500"
+            className="text-left mt-2 disabled:text-slate-500 hover:bg-red-700"
             disabled={!!airSoldierTimer}
           >
             Air Soldier {airSoldierTimer != 0 && <span>{airSoldierTimer}</span>}
@@ -410,7 +450,7 @@ const App = () => {
             onClick={() => {
               setMarkerType(AidType.WaterSoldier);
             }}
-            className="text-left mt-2 disabled:text-slate-500"
+            className="text-left mt-2 disabled:text-slate-500 hover:bg-red-700"
             disabled={!!waterSoldierTimer}
           >
             Water Soldier{" "}

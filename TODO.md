@@ -1,6 +1,5 @@
-1. Soldiers icon on house instead of red outline
-   1b. Sidebar "status update" for all game events, ex. "10 people eaten today", ""
-2. Figure out a good level for game play, create start and end game
+1. Switch game events for stats (soldiers/civilians starved, soldiers/civilians eaten,
+2. Figure out how to end a game
 3. Restyle and add supplementary UI (start screen, game over, etc)
 4. Deploy
 5. Add in language or math learning, potentially just flashcards

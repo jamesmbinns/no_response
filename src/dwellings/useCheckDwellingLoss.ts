@@ -8,10 +8,15 @@ export const useCheckDwellingLoss = (
   hordes: any,
   dwellings: any,
   setDwellings: (dwellings: any) => void,
-  dwellingsLayer: any
+  dwellingsLayer: any,
+  updateEvents: any
 ) => {
   return useCallback(() => {
     dwellingsLayer.clearLayers();
+    let civiliansEaten = 0;
+    let civiliansStarved = 0;
+    let soldiersEaten = 0;
+    let soldiersStarved = 0;
 
     const newDwellings = dwellings.eachLayer((dwelling: any) => {
       // Lose one food every day per person
@@ -27,6 +32,8 @@ export const useCheckDwellingLoss = (
 
       // If no food, all occupants and soldiers die
       if (dwelling.feature.properties.food <= 0) {
+        civiliansStarved += dwelling.feature.properties.occupancy;
+        soldiersStarved += dwelling.feature.properties.soldiers;
         dwelling.feature.properties.occupancy = 0;
         dwelling.feature.properties.soldiers = 0;
       }
@@ -46,12 +53,14 @@ export const useCheckDwellingLoss = (
             if (Math.random() < Constants.HordeKillRisk) {
               if (dwelling.feature.properties.soldiers) {
                 dwelling.feature.properties.soldiers -= 1;
+                soldiersEaten += 1;
               }
             }
 
             if (Math.random() < Constants.HordeKillRisk) {
               if (dwelling.feature.properties.occupancy) {
                 dwelling.feature.properties.occupancy -= 1;
+                civiliansEaten += 1;
               }
             }
           }
@@ -95,5 +104,11 @@ export const useCheckDwellingLoss = (
     });
 
     setDwellings(newDwellings);
-  }, [hordes, dwellings]);
+    updateEvents([
+      `Today ${civiliansEaten} civilians were eaten`,
+      `Today ${civiliansStarved} civilians starved to death`,
+      `Today ${soldiersEaten} soldiers were eaten`,
+      `Today ${soldiersStarved} soldiers starved to death`,
+    ]);
+  }, [hordes, dwellings, updateEvents]);
 };

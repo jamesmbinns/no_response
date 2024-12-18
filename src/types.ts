@@ -25,3 +25,8 @@ export enum Constants {
   SoldierKillRisk = 0.5,
   HordeKillRisk = 0.25,
 }
+
+export interface GameEvent {
+  content: string;
+  date: Date;
+}
