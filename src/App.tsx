@@ -23,9 +23,17 @@ import { useBorderMouseover } from "./map/useBorderMouseover";
 import { useHandleMapClick } from "./map/useHandleMapClick";
 import { useCheckDwellingLoss } from "./dwellings/useCheckDwellingLoss";
 import { useCheckHordeKills } from "./hordes/useCheckHordeKills";
-import { useUpdateEvents } from "./game/useUpdateEvents";
+import { useInterval } from "./utility/useInterval";
+
+import { StartGame } from "./game/StartGame";
+import { EndGame } from "./game/EndGame";
+import { HUD } from "./game/HUD";
+import { QuestionAndAnswer } from "./game/QuestionAndAnswer";
 
 const App = () => {
+  const [gameWon, setGameWon] = useState<boolean>(false);
+  const [gameStarted, setGameStarted] = useState<boolean>(false);
+  const [firstTime, setFirstTime] = useState<boolean>(true);
   const [map, setMap] = useState<L.Map>();
   const [markerType, setMarkerType] = useState<AidType | null>();
   const [supplyDrop, setSupplyDrop] = useState<L.Marker>();
@@ -37,16 +45,18 @@ const App = () => {
   const [dwellingsLayer, setDwellingsLayer] = useState<any>([]);
   const [clearMap, setClearMap] = useState<boolean>(false);
   const [frontDwellings, setFrontDwellings] = useState<boolean>(false);
-  const [gameEvents, setGameEvents] = useState<Array<Array<string>>>([]);
   const [hordesDestroyed, setHordesDestroyed] = useState<number>(0);
   const [zombiesDestroyed, setZombiesDestroyed] = useState<number>(0);
+  const [civiliansEaten, setCiviliansEaten] = useState<number>(0);
+  const [civiliansStarved, setCiviliansStarved] = useState<number>(0);
+  const [soldiersEaten, setSoldiersEaten] = useState<number>(0);
+  const [soldiersStarved, setSoldiersStarved] = useState<number>(0);
+  const [totalCivilians, setTotalCivilians] = useState<number>(0);
 
   const [airSoldierTimer, setAirSoldierTimer] = useState<number>();
   const [airFoodTimer, setAirFoodTimer] = useState<number>();
   const [waterSoldierTimer, setWaterSoldierTimer] = useState<number>();
   const [waterFoodTimer, setWaterFoodTimer] = useState<number>();
-
-  const updateEvents = useUpdateEvents(gameEvents, setGameEvents);
 
   const renderHordes = useRenderHordes(
     hordes,
@@ -74,7 +84,10 @@ const App = () => {
     dwellings,
     setDwellings,
     dwellingsLayer,
-    updateEvents
+    setCiviliansEaten,
+    setCiviliansStarved,
+    setSoldiersEaten,
+    setSoldiersStarved
   );
   const checkHordeKills = useCheckHordeKills(
     hordes,
@@ -127,6 +140,8 @@ const App = () => {
       },
     });
 
+    let totalCivs = 0;
+
     // Customize dwellings
     dwells.eachLayer((dwelling: any) => {
       dwelling.options.fillColor = getDwellingColor(dwelling).fill;
@@ -135,6 +150,8 @@ const App = () => {
       dwelling.feature.properties.occupancy = Math.ceil(
         dwelling.feature.properties.max_occupancy * Math.random()
       );
+
+      totalCivs += parseInt(dwelling.feature.properties.occupancy, 10) || 0;
 
       // Randomize food
       dwelling.feature.properties.food = Math.ceil(
@@ -145,6 +162,7 @@ const App = () => {
     });
 
     setDwellings(dwells);
+    setTotalCivilians(totalCivs);
 
     // Add empty supply layer
     const suplyLyr = L.layerGroup();
@@ -213,25 +231,19 @@ const App = () => {
     setMap(aMap);
   }, []);
 
-  // Game loop
-  useEffect(() => {
-    // Every hour check
-    const hourInterval = setInterval(() => {
+  // Shoutout to Dan Abramov: https://overreacted.io/making-setinterval-declarative-with-react-hooks/
+  useInterval(() => {
+    if (gameStarted) {
       checkHordeKills();
-    }, Constants.HourlyInterval);
+    }
+  }, 1000);
 
-    // Every 12 hours check
-    const dailyInterval = setInterval(() => {
+  useInterval(() => {
+    if (gameStarted) {
       checkDwellingLoss();
-
       updateHordeLocation();
-    }, Constants.DailyInterval);
-
-    return () => {
-      clearInterval(hourInterval);
-      clearInterval(dailyInterval);
-    };
-  }, [map, gameEvents]);
+    }
+  }, 12000);
 
   // Supply Drop event #1
   useEffect(() => {
@@ -367,11 +379,15 @@ const App = () => {
 
   // Render hordes when hordes changes
   useEffect(() => {
-    if (!hordes.length) {
-      console.log("===YOU WIN THE GAME!");
-    } else {
-      renderHordes();
+    renderHordes();
+    if (!firstTime && !gameWon && hordes && !hordes.length) {
+      hordesLayer.clearLayers();
+      setTimeout(() => {
+        setGameWon(true);
+      }, 3000);
     }
+
+    setFirstTime(false);
   }, [hordes]);
 
   // Handle clicks
@@ -390,74 +406,84 @@ const App = () => {
 
   return (
     <div className="flex flex-row">
-      <div className="sidebar">
-        <div className="bg-zinc-900 flex flex-col p-4">
-          <h3 className="mb-1 underline">Daily Reports</h3>
-          <div className="scroll-status overflow-y-scroll	">
-            {[...gameEvents].map((events: Array<string>, i: number) => (
-              <div key={i} className="mb-3">
-                <h3 className="mb-1">Day {i + 1}</h3>
-                {events.map((gameEvent: string, j: number) => (
-                  <p className="mb-1" key={j}>
-                    {gameEvent}
-                  </p>
-                ))}
-              </div>
-            ))}
+      {!gameWon && gameStarted && (
+        <div className="sidebar">
+          <div className="flex flex-col p-4">
+            <h3 className="mb-2 underline">Hostile Engagement</h3>
+            <HUD
+              zombiesDestroyed={zombiesDestroyed}
+              hordesDestroyed={hordesDestroyed}
+              civiliansEaten={civiliansEaten}
+              soldiersEaten={soldiersEaten}
+              civiliansStarved={civiliansStarved}
+              soldiersStarved={soldiersStarved}
+            />
           </div>
+          <div className="flex flex-col p-4">
+            <h3 className="underline">Supply Drops</h3>
+            <button
+              onClick={() => {
+                setMarkerType(AidType.AirFood);
+              }}
+              className="text-left mt-2 disabled:text-slate-500 hover:bg-red-700"
+              disabled={!!airFoodTimer}
+            >
+              Air Food {airFoodTimer != 0 && <span>{airFoodTimer}</span>}
+            </button>
+            <button
+              onClick={() => {
+                setMarkerType(AidType.WaterFood);
+              }}
+              className="text-left mt-2 disabled:text-slate-500 hover:bg-red-700"
+              disabled={!!waterFoodTimer}
+            >
+              Water Food {waterFoodTimer != 0 && <span>{waterFoodTimer}</span>}
+            </button>
+            <button
+              onClick={() => {
+                setMarkerType(AidType.AirSoldier);
+              }}
+              className="text-left mt-2 disabled:text-slate-500 hover:bg-red-700"
+              disabled={!!airSoldierTimer}
+            >
+              Air Soldier{" "}
+              {airSoldierTimer != 0 && <span>{airSoldierTimer}</span>}
+            </button>
+            <button
+              onClick={() => {
+                setMarkerType(AidType.WaterSoldier);
+              }}
+              className="text-left mt-2 disabled:text-slate-500 hover:bg-red-700"
+              disabled={!!waterSoldierTimer}
+            >
+              Water Soldier{" "}
+              {waterSoldierTimer != 0 && <span>{waterSoldierTimer}</span>}
+            </button>
+          </div>
+          <QuestionAndAnswer />
         </div>
-        <div className="flex flex-col p-4">
-          <h3 className="mb-2 underline">Hostile Engagement</h3>
-          <p className="mt-1">
-            <span className="text-red-500 font-bold">{zombiesDestroyed}</span>{" "}
-            zombies destroyed
-          </p>
-          <p className="mt-1">
-            <span className="text-red-500 font-bold">{hordesDestroyed}</span>{" "}
-            hordes destroyed
-          </p>
+      )}
+
+      {(gameWon || !gameStarted) && (
+        <div
+          className="fixed inset-0 flex flex-col items-center justify-center bg-black text-white"
+          style={{ width: "100%", height: "100vh", zIndex: 1001 }}
+        >
+          {!gameStarted && <StartGame setGameStarted={setGameStarted} />}
+
+          {gameWon && (
+            <EndGame
+              zombiesDestroyed={zombiesDestroyed}
+              hordesDestroyed={hordesDestroyed}
+              civiliansEaten={civiliansEaten}
+              soldiersEaten={soldiersEaten}
+              civiliansStarved={civiliansStarved}
+              soldiersStarved={soldiersStarved}
+              totalCivilians={totalCivilians}
+            />
+          )}
         </div>
-        <div className="flex flex-col p-4">
-          <h3 className="underline">Supply Drops</h3>
-          <button
-            onClick={() => {
-              setMarkerType(AidType.AirFood);
-            }}
-            className="text-left mt-2 disabled:text-slate-500 hover:bg-red-700"
-            disabled={!!airFoodTimer}
-          >
-            Air Food {airFoodTimer != 0 && <span>{airFoodTimer}</span>}
-          </button>
-          <button
-            onClick={() => {
-              setMarkerType(AidType.WaterFood);
-            }}
-            className="text-left mt-2 disabled:text-slate-500 hover:bg-red-700"
-            disabled={!!waterFoodTimer}
-          >
-            Water Food {waterFoodTimer != 0 && <span>{waterFoodTimer}</span>}
-          </button>
-          <button
-            onClick={() => {
-              setMarkerType(AidType.AirSoldier);
-            }}
-            className="text-left mt-2 disabled:text-slate-500 hover:bg-red-700"
-            disabled={!!airSoldierTimer}
-          >
-            Air Soldier {airSoldierTimer != 0 && <span>{airSoldierTimer}</span>}
-          </button>
-          <button
-            onClick={() => {
-              setMarkerType(AidType.WaterSoldier);
-            }}
-            className="text-left mt-2 disabled:text-slate-500 hover:bg-red-700"
-            disabled={!!waterSoldierTimer}
-          >
-            Water Soldier{" "}
-            {waterSoldierTimer != 0 && <span>{waterSoldierTimer}</span>}
-          </button>
-        </div>
-      </div>
+      )}
       <div id="map" style={{ width: "100%", height: "100vh" }}></div>
     </div>
   );

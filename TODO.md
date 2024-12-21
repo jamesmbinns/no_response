@@ -1,9 +1,12 @@
-1. Switch game events for stats (soldiers/civilians starved, soldiers/civilians eaten,
-2. Figure out how to end a game
 3. Restyle and add supplementary UI (start screen, game over, etc)
 4. Deploy
 5. Add in language or math learning, potentially just flashcards
 6. Update map to cover the whole of L'Ile Perrot, specifically for this map that Leafletjs is using
+7. Make a new border that is closer to the shoreline
+
+Bugs
+
+1.NaN for civiliansSaved
 
 Features
 

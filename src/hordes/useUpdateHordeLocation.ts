@@ -33,6 +33,6 @@ export const useUpdateHordeLocation = (
 
     hordesLayer.clearLayers();
 
-    setHordes(newHordes);
+    setHordes(() => newHordes);
   }, [hordes]);
 };

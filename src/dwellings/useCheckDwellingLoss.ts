@@ -9,7 +9,10 @@ export const useCheckDwellingLoss = (
   dwellings: any,
   setDwellings: (dwellings: any) => void,
   dwellingsLayer: any,
-  updateEvents: any
+  setCiviliansEaten: (count: any) => void,
+  setCiviliansStarved: (count: any) => void,
+  setSoldiersEaten: (count: any) => void,
+  setSoldiersStarved: (count: any) => void
 ) => {
   return useCallback(() => {
     dwellingsLayer.clearLayers();
@@ -103,12 +106,10 @@ export const useCheckDwellingLoss = (
       dwelling.setStyle(dwellingsStyle(getDwellingColor(dwelling)));
     });
 
-    setDwellings(newDwellings);
-    updateEvents([
-      `Today ${civiliansEaten} civilians were eaten`,
-      `Today ${civiliansStarved} civilians starved to death`,
-      `Today ${soldiersEaten} soldiers were eaten`,
-      `Today ${soldiersStarved} soldiers starved to death`,
-    ]);
-  }, [hordes, dwellings, updateEvents]);
+    setDwellings(() => newDwellings);
+    setCiviliansEaten((prevCount: number) => prevCount + civiliansEaten);
+    setCiviliansStarved((prevCount: number) => prevCount + civiliansStarved);
+    setSoldiersEaten((prevCount: number) => prevCount + soldiersEaten);
+    setSoldiersStarved((prevCount: number) => prevCount + soldiersStarved);
+  }, [dwellings]);
 };

@@ -44,10 +44,10 @@ export const useCheckHordeKills = (
 
         return horde;
       })
-      .filter((horde: any) => horde.size >= 0);
+      .filter((horde: any) => horde.size > 0);
 
     if (hordes != newHordes) {
-      setHordes(newHordes);
+      setHordes(() => newHordes);
       setZombiesDestroyed((prevCount: number) => prevCount + zombiesDestroyed);
       setHordesDestroyed((prevCount: number) => prevCount + hordesDestroyed);
     }
